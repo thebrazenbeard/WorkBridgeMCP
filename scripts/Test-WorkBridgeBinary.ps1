@@ -34,7 +34,8 @@ $config = [ordered]@{
         bearer_token_env = ""
     }
 }
-$config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $configPath -Encoding UTF8
+$configJson = ($config | ConvertTo-Json -Depth 8) + [Environment]::NewLine
+[IO.File]::WriteAllText($configPath, $configJson, (New-Object Text.UTF8Encoding($false)))
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $binaryPath
@@ -153,7 +154,7 @@ try {
 }
 finally {
     if ($process -and -not $process.HasExited) {
-        try { $process.Kill($true) } catch { }
+        try { $process.Kill() } catch { }
     }
     if ($process) { $process.Dispose() }
     if (Test-Path -LiteralPath $tempRoot) {
