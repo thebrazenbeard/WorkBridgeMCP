@@ -36,6 +36,7 @@ type Entry struct {
 }
 
 type Stat struct {
+	Name      string `json:"name"`
 	Path      string `json:"path"`
 	Type      string `json:"type"`
 	IsSymlink bool   `json:"is_symlink"`
@@ -142,6 +143,7 @@ func (s *Service) Stat(path string) (*Stat, error) {
 		return nil, err
 	}
 	return &Stat{
+		Name: filepath.Base(resolved),
 		Path: resolved,
 		Type: classifyMode(lstat.Mode()),
 		IsSymlink: lstat.Mode()&os.ModeSymlink != 0,

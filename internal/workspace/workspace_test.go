@@ -49,7 +49,7 @@ func TestReadListStatAndWriteBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat.Path != file || stat.Type != "file" || stat.IsSymlink || stat.SizeBytes != 5 || stat.MtimeNS == 0 {
+	if stat.Name != "hello.txt" || stat.Path != file || stat.Type != "file" || stat.IsSymlink || stat.SizeBytes != 5 || stat.MtimeNS == 0 {
 		t.Fatalf("unexpected normalized stat metadata: %#v", stat)
 	}
 	newFile := filepath.Join(root, "new.txt")
