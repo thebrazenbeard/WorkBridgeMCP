@@ -18,6 +18,7 @@
   },
   "http": {
     "listen": "127.0.0.1:8765",
-    "path": "/mcp"
+    "path": "/mcp",
+    "bearer_token_env": "WORKBRIDGE_HTTP_TOKEN"
   }
 }

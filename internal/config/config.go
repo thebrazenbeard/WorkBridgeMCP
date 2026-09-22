@@ -29,8 +29,9 @@ type ProcessConfig struct {
 }
 
 type HTTPConfig struct {
-	Listen string `json:"listen"`
-	Path   string `json:"path"`
+	Listen         string `json:"listen"`
+	Path           string `json:"path"`
+	BearerTokenEnv string `json:"bearer_token_env"`
 }
 
 type Config struct {
@@ -90,6 +91,9 @@ func (c *Config) applyDefaults() {
 	if strings.TrimSpace(c.HTTP.Path) == "" {
 		c.HTTP.Path = "/mcp"
 	}
+	if strings.TrimSpace(c.HTTP.BearerTokenEnv) == "" {
+		c.HTTP.BearerTokenEnv = "WORKBRIDGE_HTTP_TOKEN"
+	}
 }
 
 func (c *Config) Validate() error {
@@ -117,6 +121,9 @@ func (c *Config) Validate() error {
 	if !strings.HasPrefix(c.HTTP.Path, "/") || c.HTTP.Path == "/" ||
 		strings.ContainsAny(c.HTTP.Path, "?#") || strings.HasSuffix(c.HTTP.Path, "/") {
 		return errors.New("http.path must be a dedicated absolute path without query, fragment, or trailing slash")
+	}
+	if !validEnvName(c.HTTP.BearerTokenEnv) {
+		return errors.New("http.bearer_token_env must be a valid environment-variable name")
 	}
 	if c.Process.MaxRuntimeSeconds <= 0 || c.Process.MaxRuntimeSeconds > 900 {
 		return errors.New("process.max_runtime_seconds must be > 0 and <= 900")
@@ -165,4 +172,22 @@ func validateLoopbackListen(value string) error {
 		return errors.New("http.listen must use a literal loopback address")
 	}
 	return nil
+}
+
+func validEnvName(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i, r := range value {
+		if i == 0 {
+			if r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
+				return false
+			}
+			continue
+		}
+		if r != '_' && (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }

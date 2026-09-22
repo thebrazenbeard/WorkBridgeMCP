@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -76,12 +77,17 @@ func main() {
 }
 
 func runHTTP(server *mcp.Server, cfg *config.Config) error {
+	token, err := loadHTTPBearerToken(cfg)
+	if err != nil {
+		return err
+	}
 	handler := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return server },
 		&mcp.StreamableHTTPOptions{Stateless: true},
 	)
+	protected := requireBearerToken(token, handler)
 	mux := http.NewServeMux()
-	mux.Handle(cfg.HTTP.Path, exactPath(cfg.HTTP.Path, handler))
+	mux.Handle(cfg.HTTP.Path, exactPath(cfg.HTTP.Path, protected))
 	httpServer := &http.Server{
 		Addr:              cfg.HTTP.Listen,
 		Handler:           mux,
@@ -106,6 +112,38 @@ func runHTTP(server *mcp.Server, cfg *config.Config) error {
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	}
+}
+
+func loadHTTPBearerToken(cfg *config.Config) (string, error) {
+	name := cfg.HTTP.BearerTokenEnv
+	token, ok := os.LookupEnv(name)
+	if !ok || token == "" {
+		return "", fmt.Errorf("HTTP bearer token environment variable %s is not set", name)
+	}
+	if strings.TrimSpace(token) != token || strings.ContainsAny(token, " 	
+") {
+		return "", errors.New("HTTP bearer token must not contain whitespace")
+	}
+	if len(token) < 32 {
+		return "", errors.New("HTTP bearer token must be at least 32 bytes")
+	}
+	return token, nil
+}
+
+func requireBearerToken(expected string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.SplitN(strings.TrimSpace(r.Header.Get("Authorization")), " ", 2)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") ||
+			len(parts[1]) != len(expected) ||
+			subtle.ConstantTimeCompare([]byte(parts[1]), []byte(expected)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="WorkBridgeMCP"`)
+			w.Header().Set("Cache-Control", "no-store")
+			http.Error(w, "bearer authorization required", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func exactPath(expected string, next http.Handler) http.Handler {
