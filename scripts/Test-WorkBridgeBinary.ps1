@@ -44,6 +44,10 @@ $psi.UseShellExecute = $false
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
+$utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+$psi.StandardInputEncoding = $utf8NoBom
+$psi.StandardOutputEncoding = $utf8NoBom
+$psi.StandardErrorEncoding = $utf8NoBom
 $psi.CreateNoWindow = $true
 
 $process = New-Object System.Diagnostics.Process
