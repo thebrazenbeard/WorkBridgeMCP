@@ -87,3 +87,20 @@ func TestRejectsDuplicateGrantNamesAndBadTokenEnv(t *testing.T) {
 		t.Fatalf("bad token env accepted: %v", err)
 	}
 }
+
+func TestDefaultHTTPBearerTokenEnv(t *testing.T) {
+	cfg, err := Parse([]byte(`{
+		"schema":"WORKBRIDGE_CONFIG_V1",
+		"read_roots":[],
+		"write_roots":[],
+		"limits":{},
+		"process":{"enabled":false},
+		"http":{}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HTTP.BearerTokenEnv != "WORKBRIDGE_HTTP_TOKEN" {
+		t.Fatalf("bearer token env=%q", cfg.HTTP.BearerTokenEnv)
+	}
+}

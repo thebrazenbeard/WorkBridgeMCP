@@ -105,6 +105,9 @@ func (c *Config) applyDefaults() {
 	if strings.TrimSpace(c.HTTP.Path) == "" {
 		c.HTTP.Path = "/mcp"
 	}
+	if strings.TrimSpace(c.HTTP.BearerTokenEnv) == "" {
+		c.HTTP.BearerTokenEnv = "WORKBRIDGE_HTTP_TOKEN"
+	}
 }
 
 func (c *Config) Validate() error {
@@ -133,7 +136,7 @@ func (c *Config) Validate() error {
 		strings.ContainsAny(c.HTTP.Path, "?#") || strings.HasSuffix(c.HTTP.Path, "/") {
 		return errors.New("http.path must be a dedicated absolute path without query, fragment, or trailing slash")
 	}
-	if c.HTTP.BearerTokenEnv != "" && !envNamePattern.MatchString(c.HTTP.BearerTokenEnv) {
+	if !envNamePattern.MatchString(c.HTTP.BearerTokenEnv) {
 		return errors.New("http.bearer_token_env must be a valid environment variable name")
 	}
 	if c.Process.MaxRuntimeSeconds <= 0 || c.Process.MaxRuntimeSeconds > 900 {

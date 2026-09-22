@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -59,16 +60,13 @@ func main() {
 
 func runHTTP(rt *bridge.Runtime) {
 	cfg := rt.Config
-	token := ""
-	if cfg.HTTP.BearerTokenEnv != "" {
-		token = os.Getenv(cfg.HTTP.BearerTokenEnv)
-		if token == "" {
-			log.Fatalf("HTTP bearer token environment variable %s is empty", cfg.HTTP.BearerTokenEnv)
-		}
+	token, err := loadHTTPBearerToken(cfg)
+	if err != nil {
+		log.Fatal(err)
 	}
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return rt.Server
-	}, nil)
+	}, &mcp.StreamableHTTPOptions{Stateless: true})
 	mux := http.NewServeMux()
 	mux.Handle(cfg.HTTP.Path, withBearer(token, mcpHandler))
 	healthPath := cfg.HTTP.Path + "/healthz"
@@ -92,10 +90,22 @@ func runHTTP(rt *bridge.Runtime) {
 	}
 }
 
-func withBearer(token string, next http.Handler) http.Handler {
-	if token == "" {
-		return next
+func loadHTTPBearerToken(cfg *config.Config) (string, error) {
+	name := cfg.HTTP.BearerTokenEnv
+	token, ok := os.LookupEnv(name)
+	if !ok || token == "" {
+		return "", fmt.Errorf("HTTP bearer token environment variable %s is not set", name)
 	}
+	if len(token) < 32 {
+		return "", fmt.Errorf("HTTP bearer token must be at least 32 bytes")
+	}
+	if strings.IndexFunc(token, unicode.IsSpace) >= 0 {
+		return "", fmt.Errorf("HTTP bearer token must not contain whitespace")
+	}
+	return token, nil
+}
+
+func withBearer(token string, next http.Handler) http.Handler {
 	expected := []byte("Bearer " + token)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got := []byte(r.Header.Get("Authorization"))
