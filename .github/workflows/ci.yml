@@ -44,6 +44,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/New-WorkBridgeRelease.ps1 -Binary ./workbridge-mcp.exe -OutputDirectory ./dist -Version ci
+      - name: Parse Lappy installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./scripts/Install-WorkBridgeLappy.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
 
   windows-binary:
     runs-on: ubuntu-latest
