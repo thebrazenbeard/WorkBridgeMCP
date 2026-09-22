@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"unicode/utf8"
 
@@ -21,14 +22,27 @@ type Service struct {
 }
 
 type Entry struct {
-	Name     string `json:"name"`
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	Type      string `json:"type"`
+	IsSymlink bool   `json:"is_symlink"`
+	SizeBytes int64  `json:"size_bytes"`
+	MtimeNS   int64  `json:"mtime_ns"`
+
+	// Compatibility fields retained for existing WorkBridge clients.
 	IsDir    bool   `json:"is_dir"`
 	Size     int64  `json:"size"`
 	Modified string `json:"modified"`
 }
 
 type Stat struct {
-	Path     string `json:"path"`
+	Path      string `json:"path"`
+	Type      string `json:"type"`
+	IsSymlink bool   `json:"is_symlink"`
+	SizeBytes int64  `json:"size_bytes"`
+	MtimeNS   int64  `json:"mtime_ns"`
+
+	// Compatibility fields retain the prior follow-final-link view.
 	IsDir    bool   `json:"is_dir"`
 	Size     int64  `json:"size"`
 	Mode     string `json:"mode"`
@@ -72,7 +86,7 @@ func (s *Service) Close() error {
 func (s *Service) CanWrite() bool { return !s.write.Empty() }
 
 func (s *Service) List(path string) ([]Entry, error) {
-	f, _, err := s.read.Open(path)
+	f, resolvedDir, err := s.read.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +111,20 @@ func (s *Service) List(path string) ([]Entry, error) {
 		if err != nil {
 			return nil, err
 		}
+		childPath := filepath.Join(resolvedDir, item.Name())
+		lstat, _, err := s.read.Lstat(childPath)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, Entry{
-			Name: item.Name(), IsDir: item.IsDir(), Size: itemInfo.Size(),
+			Name: item.Name(),
+			Path: childPath,
+			Type: classifyMode(lstat.Mode()),
+			IsSymlink: lstat.Mode()&os.ModeSymlink != 0,
+			SizeBytes: lstat.Size(),
+			MtimeNS: lstat.ModTime().UnixNano(),
+			IsDir: item.IsDir(),
+			Size: itemInfo.Size(),
 			Modified: itemInfo.ModTime().UTC().Format("2006-01-02T15:04:05.999999999Z"),
 		})
 	}
@@ -111,10 +137,34 @@ func (s *Service) Stat(path string) (*Stat, error) {
 	if err != nil {
 		return nil, err
 	}
+	lstat, _, err := s.read.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
 	return &Stat{
-		Path: resolved, IsDir: info.IsDir(), Size: info.Size(), Mode: info.Mode().String(),
+		Path: resolved,
+		Type: classifyMode(lstat.Mode()),
+		IsSymlink: lstat.Mode()&os.ModeSymlink != 0,
+		SizeBytes: lstat.Size(),
+		MtimeNS: lstat.ModTime().UnixNano(),
+		IsDir: info.IsDir(),
+		Size: info.Size(),
+		Mode: info.Mode().String(),
 		Modified: info.ModTime().UTC().Format("2006-01-02T15:04:05.999999999Z"),
 	}, nil
+}
+
+func classifyMode(mode os.FileMode) string {
+	switch {
+	case mode&os.ModeSymlink != 0:
+		return "symlink"
+	case mode.IsDir():
+		return "directory"
+	case mode.IsRegular():
+		return "file"
+	default:
+		return "other"
+	}
 }
 
 func (s *Service) ReadText(path string) (string, error) {

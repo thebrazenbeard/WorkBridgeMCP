@@ -42,8 +42,15 @@ func TestReadListStatAndWriteBoundaries(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].Name != "hello.txt" {
 		t.Fatalf("list=%v err=%v", entries, err)
 	}
-	if _, err := s.Stat(file); err != nil {
+	if entries[0].Path != file || entries[0].Type != "file" || entries[0].IsSymlink || entries[0].SizeBytes != 5 {
+		t.Fatalf("unexpected normalized entry metadata: %#v", entries[0])
+	}
+	stat, err := s.Stat(file)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if stat.Path != file || stat.Type != "file" || stat.IsSymlink || stat.SizeBytes != 5 || stat.MtimeNS == 0 {
+		t.Fatalf("unexpected normalized stat metadata: %#v", stat)
 	}
 	newFile := filepath.Join(root, "new.txt")
 	if _, err := s.WriteText(newFile, "new", false); err != nil {
@@ -80,5 +87,29 @@ func TestWriteDisabledAndOutsideRootDenied(t *testing.T) {
 	outside := filepath.Join(t.TempDir(), "x.txt")
 	if _, err := s.ReadText(outside); err == nil {
 		t.Fatal("outside read accepted")
+	}
+}
+
+func TestStatReportsSymlinkWithoutBreakingCompatibilityFields(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.txt")
+	if err := os.WriteFile(target, []byte("target"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	s, err := New(testConfig(root, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	stat, err := s.Stat(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat.Type != "symlink" || !stat.IsSymlink {
+		t.Fatalf("symlink metadata lost: %#v", stat)
 	}
 }
