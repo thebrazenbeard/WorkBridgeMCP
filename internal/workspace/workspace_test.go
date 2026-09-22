@@ -116,7 +116,10 @@ func TestStatReportsSymlinkWithoutBreakingCompatibilityFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat.Name != "link.txt" || stat.Type != "symlink" || !stat.IsSymlink || stat.IsDir {
+	if stat.Name != "link.txt" || stat.Type != "symlink" || !stat.IsSymlink {
 		t.Fatalf("symlink metadata lost: %#v", stat)
+	}
+	if stat.IsDir || stat.Size != int64(len("target")) {
+		t.Fatalf("legacy compatibility fields did not follow symlink target: %#v", stat)
 	}
 }
