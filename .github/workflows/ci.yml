@@ -1,0 +1,51 @@
+name: WorkBridgeMCP CI
+
+on:
+  push:
+    branches:
+      - "work/**"
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.0"
+          cache: true
+      - name: Verify modules
+        run: go mod verify
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build ./cmd/workbridgemcp
+
+  windows-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.0"
+          cache: true
+      - name: Cross-build Windows amd64
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "-buildid= -X main.buildVersion=0.1.0-dev -X main.buildCommit=$GITHUB_SHA" -o dist/workbridgemcp-windows-amd64.exe ./cmd/workbridgemcp
+          sha256sum dist/workbridgemcp-windows-amd64.exe
