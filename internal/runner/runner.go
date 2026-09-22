@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/thebrazenbeard/WorkBridgeMCP/internal/config"
@@ -45,6 +46,10 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+	fail := func(err error) (*Runner, error) {
+		_ = roots.Close()
+		return nil, err
+	}
 	r := &Runner{
 		enabled: cfg.Enabled,
 		grants: make(map[string]grant),
@@ -59,29 +64,36 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 	for _, item := range cfg.AllowedExecutables {
 		resolved, err := filepath.EvalSymlinks(filepath.Clean(item.Path))
 		if err != nil {
-			return nil, fmt.Errorf("resolve executable %q: %w", item.Name, err)
+			return fail(fmt.Errorf("resolve executable %q: %w", item.Name, err))
 		}
 		resolved, err = filepath.Abs(resolved)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		info, err := os.Stat(resolved)
 		if err != nil {
-			return nil, fmt.Errorf("stat executable %q: %w", item.Name, err)
+			return fail(fmt.Errorf("stat executable %q: %w", item.Name, err))
 		}
 		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("executable %q is not a regular file", item.Name)
+			return fail(fmt.Errorf("executable %q is not a regular file", item.Name))
 		}
 		digest, err := hashFile(resolved)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		if digest != item.SHA256 {
-			return nil, fmt.Errorf("executable %q sha256 mismatch", item.Name)
+			return fail(fmt.Errorf("executable %q sha256 mismatch", item.Name))
 		}
 		r.grants[item.Name] = grant{path: filepath.Clean(resolved), sha256: digest}
 	}
 	return r, nil
+}
+
+func (r *Runner) Close() error {
+	if r == nil || r.roots == nil {
+		return nil
+	}
+	return r.roots.Close()
 }
 
 func (r *Runner) Enabled() bool { return r != nil && r.enabled }
@@ -97,11 +109,18 @@ func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir
 	if len(args) > r.maxArgs {
 		return nil, fmt.Errorf("argument count %d exceeds limit %d", len(args), r.maxArgs)
 	}
+	totalArgBytes := 0
+	for _, arg := range args {
+		totalArgBytes += len(arg)
+	}
+	if totalArgBytes > 64*1024 {
+		return nil, errors.New("process arguments exceed 64 KiB")
+	}
 	dir, err := r.roots.ResolveExisting(workingDir)
 	if err != nil {
 		return nil, fmt.Errorf("working directory: %w", err)
 	}
-	info, err := os.Stat(dir)
+	info, _, err := r.roots.Stat(workingDir)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +153,7 @@ func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir
 	stderr := &cappedBuffer{max: r.maxOut}
 	cmd := exec.CommandContext(runCtx, resolved, args...)
 	cmd.Dir = dir
+	cmd.Env = safeEnvironment()
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
@@ -167,6 +187,25 @@ func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir
 		return nil, errors.New("executable content identity changed during execution")
 	}
 	return result, nil
+}
+
+func safeEnvironment() []string {
+	allowed := map[string]struct{}{
+		"SYSTEMROOT": {}, "WINDIR": {}, "COMSPEC": {}, "TEMP": {}, "TMP": {},
+		"USERPROFILE": {}, "PATHEXT": {}, "HOME": {}, "TMPDIR": {},
+		"LANG": {}, "LC_ALL": {}, "TERM": {},
+	}
+	var out []string
+	for _, entry := range os.Environ() {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		if _, keep := allowed[strings.ToUpper(key)]; keep {
+			out = append(out, entry)
+		}
+	}
+	return out
 }
 
 func hashFile(path string) (string, error) {

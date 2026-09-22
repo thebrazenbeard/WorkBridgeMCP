@@ -10,13 +10,23 @@ The intended default profile is:
 - process execution disabled;
 - no network listener.
 
-HTTP mode is optional and configuration validation permits only literal loopback
-addresses. If `http.bearer_token_env` is configured, startup fails when that environment
-variable is empty.
+HTTP mode is optional, but when selected it is literal-loopback only and bearer
+authentication is mandatory. `http.bearer_token_env` names the environment variable;
+the token itself is not stored in config. HTTP startup fails closed if the variable is
+missing, empty, shorter than 32 bytes, or contains whitespace.
 
 ## Filesystem boundaries
 
-Paths must be absolute and remain beneath configured roots after symlink evaluation.
+WorkBridge uses Go 1.25 `os.Root` for read/write roots.
+
+A configured root is opened once. Operations use root-relative `Open`, `OpenFile`,
+`Stat`, `Lstat`, and `Mkdir` calls rather than accepting a path after a separate
+global path-validation step.
+
+Per Go's `os.Root` contract, methods can access only files/directories beneath the root;
+symbolic links may be followed only when they remain beneath the root, and absolute
+symlink targets are rejected. This directly hardens traversal and symlink/reparse escape
+compared with resolve-then-open logic.
 
 Read operations:
 
@@ -30,23 +40,20 @@ Write operations:
 - are not registered unless write roots exist;
 - bound write size;
 - create new files with exclusive creation;
-- refuse to overwrite symbolic-link leaf nodes;
+- statically refuse symbolic-link leaf overwrite;
 - require `overwrite=true` for existing files;
 - create only one directory level at a time.
 
 ### Current claim ceiling
 
-The v0.1 source substantially reduces ordinary traversal and symlink-escape risk, but it
-does **not** claim resistance to a hostile local actor racing directory junctions,
-reparse points, mount changes, or file replacement between admission and the final OS
-operation.
+`os.Root` is the filesystem containment primitive, but WorkBridge does not claim that
+this makes a workstation safe against an arbitrary malicious local administrator.
 
-Before WorkBridge is qualified for mutually hostile local users, filesystem mutation
-must gain handle-relative/no-follow or equivalent final-handle identity enforcement on
-the target OS and hostile race tests.
-
-For a single-owner workstation, keep write roots narrow and do not expose HTTP beyond
-loopback.
+In particular, this source does not claim proof against every local object-identity race,
+filesystem-boundary/mount behavior, device/special-file behavior on non-Windows systems,
+or replacement of a permitted in-root object by another local actor. Windows is the
+primary workstation target; Linux CI is portability evidence, not identical platform
+semantics.
 
 ## Process boundaries
 
@@ -63,18 +70,23 @@ Immediately before execution it resolves and hashes the file again. Immediately 
 execution it verifies the hash again.
 
 The MCP caller supplies only the grant name and literal argument array. WorkBridge does
-not route process requests through a shell.
+not route process requests through a shell. Child processes receive a reduced environment,
+not the complete server environment.
 
-Working directories are separately bounded by `process.working_roots`.
-Runtime, output bytes, and argument count are bounded.
+Working directories are separately bounded by an `os.Root` policy.
+Runtime, output bytes, argument count, and aggregate argument bytes are bounded.
 
 ### Current claim ceiling
 
-Hash checks greatly reduce accidental executable substitution but are not a proof
-against an attacker who can race replacement between the final pre-spawn hash and the
-operating system's executable open. High-assurance deployment should add an OS-specific
-execution identity mechanism or place admitted executables in operator-controlled,
-non-writable locations.
+Hash checks substantially reduce accidental executable substitution but are not a
+cryptographic binding between the final hash read and the operating system's executable
+open. High-assurance deployment should place admitted executables in operator-controlled,
+non-writable locations and may require a future OS-specific executable-handle identity
+mechanism.
+
+The same principle applies to the working-directory path passed to the OS process API:
+rooted validation constrains admission, but a mutually hostile local administrator is
+outside the current qualification ceiling.
 
 ## Secrets
 
@@ -91,8 +103,10 @@ HTTP bearer values are loaded through an environment-variable indirection.
 
 Stdio is preferred for desktop MCP clients.
 
-Loopback Streamable HTTP is useful for a persistent local process. WorkBridge v0.1
-intentionally refuses non-loopback listen addresses. Public/LAN exposure requires a new
+Loopback HTTP uses stateless Streamable MCP sessions, exact endpoint matching, bearer
+authentication, bounded HTTP timeouts/header size, and graceful shutdown.
+
+WorkBridge refuses non-loopback listen addresses. Public/LAN exposure requires a new
 reviewed transport/authentication design; changing a bind string is not sufficient.
 
 ## Effect semantics

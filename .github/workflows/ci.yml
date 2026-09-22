@@ -19,13 +19,33 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
           cache: true
+      - name: Verify modules
+        run: go mod verify
       - name: Go test
         run: go test ./...
       - name: Go vet
         run: go vet ./...
       - name: Build
         run: go build ./cmd/workbridge-mcp
+
+  windows-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          cache: true
+      - name: Cross-build Windows amd64
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          mkdir -p dist
+          go build -trimpath -o dist/workbridge-mcp-windows-amd64.exe ./cmd/workbridge-mcp
+          sha256sum dist/workbridge-mcp-windows-amd64.exe

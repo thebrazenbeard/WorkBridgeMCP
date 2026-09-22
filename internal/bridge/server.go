@@ -72,6 +72,7 @@ func New(cfg *config.Config) (*Runtime, error) {
 	}
 	pr, err := runner.New(cfg.Process)
 	if err != nil {
+		_ = ws.Close()
 		return nil, fmt.Errorf("process runner: %w", err)
 	}
 	server := mcp.NewServer(&mcp.Implementation{Name: "workbridge-mcp", Version: Version}, nil)
@@ -110,6 +111,22 @@ func New(cfg *config.Config) (*Runtime, error) {
 		}, rt.run)
 	}
 	return rt, nil
+}
+
+func (rt *Runtime) Close() error {
+	if rt == nil {
+		return nil
+	}
+	var first error
+	if rt.Workspace != nil {
+		first = rt.Workspace.Close()
+	}
+	if rt.Runner != nil {
+		if err := rt.Runner.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }
 
 func (rt *Runtime) health(context.Context, *mcp.CallToolRequest, EmptyInput) (*mcp.CallToolResult, HealthOutput, error) {
