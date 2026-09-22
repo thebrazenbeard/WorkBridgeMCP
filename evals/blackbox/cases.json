@@ -1,0 +1,65 @@
+{
+  "schema": "WORKBRIDGE_BLACKBOX_EVALS_V1",
+  "cases": [
+    {
+      "id": "mcp.initialize.stdio",
+      "category": "protocol",
+      "required": true,
+      "expected": "initialize succeeds and returns protocolVersion and serverInfo"
+    },
+    {
+      "id": "mcp.tools.list",
+      "category": "protocol",
+      "required": true,
+      "expected": "tools/list succeeds after notifications/initialized"
+    },
+    {
+      "id": "fs.relative_traversal.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "../ traversal cannot escape configured root"
+    },
+    {
+      "id": "fs.absolute_outside_root.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "absolute outside-root access is denied"
+    },
+    {
+      "id": "fs.symlink_escape.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "symlink or junction cannot redirect an admitted path outside configured root"
+    },
+    {
+      "id": "fs.write.readonly.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "write attempt fails when write capability is disabled"
+    },
+    {
+      "id": "process.disabled.denied",
+      "category": "process_security",
+      "required": true,
+      "expected": "process spawn fails closed when execution capability is disabled"
+    },
+    {
+      "id": "process.stale_handle.denied",
+      "category": "process_security",
+      "required": true,
+      "expected": "unknown or stale process/session handle cannot read output or terminate another process"
+    },
+    {
+      "id": "http.loopback.default",
+      "category": "transport_security",
+      "required": false,
+      "expected": "HTTP transport binds loopback only unless an explicit non-loopback policy exists"
+    },
+    {
+      "id": "protocol.malformed_request.survives",
+      "category": "protocol",
+      "required": true,
+      "expected": "malformed request returns a bounded error and server remains available"
+    }
+  ]
+}
