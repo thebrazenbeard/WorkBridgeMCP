@@ -109,7 +109,7 @@ func TestStatReportsSymlinkWithoutBreakingCompatibilityFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat.Type != "symlink" || !stat.IsSymlink {
+	if stat.Name != "link.txt" || stat.Type != "symlink" || !stat.IsSymlink || stat.IsDir {
 		t.Fatalf("symlink metadata lost: %#v", stat)
 	}
 }

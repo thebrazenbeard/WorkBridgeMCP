@@ -134,21 +134,17 @@ func (s *Service) List(path string) ([]Entry, error) {
 }
 
 func (s *Service) Stat(path string) (*Stat, error) {
-	info, resolved, err := s.read.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	lstat, _, err := s.read.Lstat(path)
+	info, resolved, err := s.read.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
 	return &Stat{
 		Name: filepath.Base(resolved),
 		Path: resolved,
-		Type: classifyMode(lstat.Mode()),
-		IsSymlink: lstat.Mode()&os.ModeSymlink != 0,
-		SizeBytes: lstat.Size(),
-		MtimeNS: lstat.ModTime().UnixNano(),
+		Type: classifyMode(info.Mode()),
+		IsSymlink: info.Mode()&os.ModeSymlink != 0,
+		SizeBytes: info.Size(),
+		MtimeNS: info.ModTime().UnixNano(),
 		IsDir: info.IsDir(),
 		Size: info.Size(),
 		Mode: info.Mode().String(),
