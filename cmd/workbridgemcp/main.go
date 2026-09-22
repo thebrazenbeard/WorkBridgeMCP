@@ -57,6 +57,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer b.Close()
 	if *checkConfig {
 		fmt.Fprintln(os.Stdout, "WORKBRIDGE_CONFIG_OK")
 		return

@@ -6,11 +6,12 @@ Current V1 core:
 - official Go MCP SDK;
 - stdio transport for local MCP clients;
 - stateless Streamable HTTP on a literal loopback address only;
-- symlink-aware configured read/write roots;
+- traversal-resistant configured read/write roots backed by Go `os.Root`;
 - bounded text/binary reads and directory listing;
-- explicitly gated write/mkdir/move operations;
+- explicitly gated write and directory-creation operations;
 - process execution disabled by default;
 - when enabled, process execution requires an exact absolute executable allow-list, allowed working roots, runtime ceiling, and output ceiling;
+- Go 1.25.12+ runtime floor for the patched `os.Root` security baseline;
 - Linux and Windows CI plus Windows amd64 cross-build.
 
 The HTTP transport is intentionally loopback-only. Public authentication, reverse proxying, VPN exposure, installation, and service management are separate deployment concerns and are not performed by this repository's core runtime.

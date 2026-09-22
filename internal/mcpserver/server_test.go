@@ -30,6 +30,7 @@ func TestServerCapabilityMinimumExposesOnlyInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer b.Close()
 	assertTools(t, New(b, "test"), []string{"workstation_info"})
 }
 
@@ -55,8 +56,9 @@ func TestServerRegistersReadWriteToolsButNotProcessWhenDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer b.Close()
 	assertTools(t, New(b, "test"), []string{
-		"list_directory", "make_directory", "move_path", "read_bytes",
+		"list_directory", "make_directory", "read_bytes",
 		"read_text", "stat_path", "workstation_info", "write_text",
 	})
 }

@@ -36,6 +36,7 @@ func TestReadWriteAndContainment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer b.Close()
 	path := filepath.Join(root, "note.txt")
 	if _, err := b.WriteText(path, "hello", false); err != nil {
 		t.Fatal(err)
@@ -66,6 +67,7 @@ func TestProcessDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer b.Close()
 	if _, err := b.RunProcess(context.Background(), "anything", nil, root, 1); err == nil ||
 		!strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("disabled process accepted: %v", err)
@@ -89,6 +91,7 @@ func TestProcessAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer b.Close()
 	out, err := b.RunProcess(context.Background(), exe, []string{"hello"}, root, 1)
 	if err != nil {
 		t.Fatal(err)

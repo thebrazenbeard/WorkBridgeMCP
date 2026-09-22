@@ -34,12 +34,21 @@ func New(cfg *config.Config) (*Bridge, error) {
 	if len(cfg.WriteRoots) != 0 {
 		writePolicy, err = policy.NewRootPolicy(cfg.WriteRoots)
 		if err != nil {
+			if readPolicy != nil {
+				_ = readPolicy.Close()
+			}
 			return nil, err
 		}
 	}
 	if cfg.Process.Enabled {
 		workingPolicy, err = policy.NewRootPolicy(cfg.Process.WorkingRoots)
 		if err != nil {
+			if readPolicy != nil {
+				_ = readPolicy.Close()
+			}
+			if writePolicy != nil {
+				_ = writePolicy.Close()
+			}
 			return nil, err
 		}
 	}
@@ -54,6 +63,7 @@ func New(cfg *config.Config) (*Bridge, error) {
 		for _, executable := range cfg.Process.AllowedExecutables {
 			canonical, err := canonicalExecutable(executable)
 			if err != nil {
+				_ = b.Close()
 				return nil, fmt.Errorf("allowed executable %q: %w", executable, err)
 			}
 			b.allowedExec[pathKey(canonical)] = canonical
