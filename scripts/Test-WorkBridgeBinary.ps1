@@ -35,7 +35,12 @@ $config = [ordered]@{
     }
 }
 $configJson = ($config | ConvertTo-Json -Depth 8) + [Environment]::NewLine
-[IO.File]::WriteAllBytes($configPath, [Text.Encoding]::UTF8.GetBytes($configJson))
+$utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+[IO.File]::WriteAllText($configPath, $configJson, $utf8NoBom)
+$configBytes = [IO.File]::ReadAllBytes($configPath)
+if ($configBytes.Length -ge 3 -and $configBytes[0] -eq 0xEF -and $configBytes[1] -eq 0xBB -and $configBytes[2] -eq 0xBF) {
+    throw "Smoke config unexpectedly contains a UTF-8 BOM"
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $binaryPath
@@ -44,7 +49,6 @@ $psi.UseShellExecute = $false
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
-$utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
 $psi.CreateNoWindow = $true
 
 $process = New-Object System.Diagnostics.Process
