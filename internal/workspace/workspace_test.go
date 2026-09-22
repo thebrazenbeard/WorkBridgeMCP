@@ -104,7 +104,7 @@ func TestStatReportsSymlinkWithoutBreakingCompatibilityFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	link := filepath.Join(root, "link.txt")
-	if err := os.Symlink(target, link); err != nil {
+	if err := os.Symlink(filepath.Base(target), link); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
 	s, err := New(testConfig(root, false))
