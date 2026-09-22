@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SourceCommit = "fd21858dc72e65bdc346a946c4b7886310686e34",
+    [string]$SourceCommit = "6fcebbbdc955d7045818caa247cdd9102d5bc6b8",
     [string]$GoVersion = "go1.25.12",
     [string]$InstallRoot = "C:\Program Files\WorkBridgeMCP",
     [string]$DataRoot = "C:\ProgramData\WorkBridgeMCP",
@@ -155,7 +155,7 @@ try {
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
         $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
-        [IO.File]::WriteAllText($tokenPath, $token, (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllBytes($tokenPath, [Text.Encoding]::UTF8.GetBytes($token))
     }
     $token = [IO.File]::ReadAllText($tokenPath).Trim()
     if ($token.Length -lt 32 -or $token -match '\s') { throw "Stored WorkBridge HTTP token is invalid" }
@@ -184,7 +184,8 @@ try {
             bearer_token_env = "WORKBRIDGE_HTTP_TOKEN"
         }
     }
-    [IO.File]::WriteAllText($configPath,(($config | ConvertTo-Json -Depth 10)+[Environment]::NewLine),(New-Object Text.UTF8Encoding($false)))
+    $configJson = (($config | ConvertTo-Json -Depth 10) + [Environment]::NewLine)
+    [IO.File]::WriteAllBytes($configPath, [Text.Encoding]::UTF8.GetBytes($configJson))
 
     $runnerLines = @(
         '$ErrorActionPreference = "Stop"',
@@ -194,7 +195,8 @@ try {
         ('& "{0}" --config "{1}" --transport http 1>>"{2}\stdout.log" 2>>"{2}\stderr.log"' -f $binaryPath,$configPath,$DataRoot),
         'exit $LASTEXITCODE'
     )
-    [IO.File]::WriteAllText($runnerPath,($runnerLines -join [Environment]::NewLine),(New-Object Text.UTF8Encoding($false)))
+    $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [IO.File]::WriteAllBytes($runnerPath, [Text.Encoding]::UTF8.GetBytes($runnerText))
     Protect-PrivateDirectory -Path $DataRoot
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runnerPath + '"')
