@@ -149,13 +149,13 @@ try {
     $binaryPath = Join-Path $InstallRoot "workbridge-mcp.exe"
     Copy-Item -LiteralPath $built -Destination $binaryPath -Force
 
+    $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
     $tokenPath = Join-Path $DataRoot "http-token.txt"
     if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
         $bytes = New-Object byte[] 48
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
         $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
-        $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
         [IO.File]::WriteAllText($tokenPath, $token, $utf8NoBom)
     }
     $token = [IO.File]::ReadAllText($tokenPath).Trim()
@@ -186,7 +186,6 @@ try {
         }
     }
     $configJson = (($config | ConvertTo-Json -Depth 10) + [Environment]::NewLine)
-    if ($null -eq $utf8NoBom) { $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false }
     [IO.File]::WriteAllText($configPath, $configJson, $utf8NoBom)
     $configBytes = [IO.File]::ReadAllBytes($configPath)
     if ($configBytes.Length -ge 3 -and $configBytes[0] -eq 0xEF -and $configBytes[1] -eq 0xBB -and $configBytes[2] -eq 0xBF) {
@@ -202,7 +201,6 @@ try {
         'exit $LASTEXITCODE'
     )
     $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
-    if ($null -eq $utf8NoBom) { $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false }
     [IO.File]::WriteAllText($runnerPath, $runnerText, $utf8NoBom)
     Protect-PrivateDirectory -Path $DataRoot
 
