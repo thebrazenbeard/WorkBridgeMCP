@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "work/**"
+      - "repair/**"
 
 permissions:
   contents: read
@@ -31,6 +32,18 @@ jobs:
         run: go vet ./...
       - name: Build
         run: go build ./cmd/workbridge-mcp
+      - name: Build Windows binary for smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: go build -trimpath -o workbridge-mcp.exe ./cmd/workbridge-mcp
+      - name: Stdio MCP smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/Test-WorkBridgeBinary.ps1 -Binary ./workbridge-mcp.exe
+      - name: Release packaging smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/New-WorkBridgeRelease.ps1 -Binary ./workbridge-mcp.exe -OutputDirectory ./dist -Version ci
 
   windows-binary:
     runs-on: ubuntu-latest

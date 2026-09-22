@@ -11,8 +11,13 @@ wrapper, edits credentials, or exposes a listener by itself.
 A release directory can contain:
 
 - `workbridge-mcp.exe` — the built WorkBridgeMCP binary;
-- `WorkBridgeMCP.xml` — service-wrapper configuration rendered from the template;
+- `README.md` and `THIRD_PARTY_NOTICES.md`;
+- `LICENSE` only when the repository actually contains one;
+- `WorkBridgeMCP.xml.template` — service-wrapper configuration source;
 - operator-owned configuration outside the release archive.
+
+The repository currently has no project `LICENSE` file. The release script therefore
+does not invent one or fail solely because it is absent.
 
 ## Service wrapper model
 

@@ -15,9 +15,10 @@ if (-not (Test-Path -LiteralPath $binaryPath -PathType Leaf)) {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $license = Join-Path $repoRoot "LICENSE"
 $readme = Join-Path $repoRoot "README.md"
+$notices = Join-Path $repoRoot "THIRD_PARTY_NOTICES.md"
 $template = Join-Path $repoRoot "packaging\windows\WorkBridgeMCP.xml.template"
 
-foreach ($required in @($license, $readme, $template)) {
+foreach ($required in @($readme, $notices, $template)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required release input missing: $required"
     }
@@ -33,9 +34,15 @@ if (Test-Path -LiteralPath $stage) {
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 Copy-Item -LiteralPath $binaryPath -Destination (Join-Path $stage "workbridge-mcp.exe")
-Copy-Item -LiteralPath $license -Destination (Join-Path $stage "LICENSE")
 Copy-Item -LiteralPath $readme -Destination (Join-Path $stage "README.md")
+Copy-Item -LiteralPath $notices -Destination (Join-Path $stage "THIRD_PARTY_NOTICES.md")
 Copy-Item -LiteralPath $template -Destination (Join-Path $stage "WorkBridgeMCP.xml.template")
+
+# LICENSE is intentionally optional. The repository currently has no project license.
+# If a license is added later, include it automatically without changing this script.
+if (Test-Path -LiteralPath $license -PathType Leaf) {
+    Copy-Item -LiteralPath $license -Destination (Join-Path $stage "LICENSE")
+}
 
 $manifest = [ordered]@{
     schema = "WORKBRIDGE_RELEASE_MANIFEST_V1"
