@@ -49,6 +49,7 @@ $psi.UseShellExecute = $false
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
+$psi.StandardInputEncoding = $utf8NoBom
 $psi.CreateNoWindow = $true
 
 $process = New-Object System.Diagnostics.Process
@@ -60,9 +61,8 @@ function Write-JsonRpcLine {
         [Parameter(Mandatory=$true)][string]$Line
     )
 
-    $bytes = $utf8NoBom.GetBytes($Line + [Environment]::NewLine)
-    $Process.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
-    $Process.StandardInput.BaseStream.Flush()
+    $Process.StandardInput.WriteLine($Line)
+    $Process.StandardInput.Flush()
 }
 
 function Read-JsonRpcResponse {
