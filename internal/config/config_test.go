@@ -24,22 +24,30 @@ func TestParseDefaultsAndRejectsUnknownFields(t *testing.T) {
 	if cfg.HTTP.Listen != "127.0.0.1:8765" || cfg.HTTP.Path != "/mcp" {
 		t.Fatalf("defaults not applied: %#v", cfg.HTTP)
 	}
+	if cfg.Process.MaxArgs != 64 {
+		t.Fatalf("process defaults not applied: %#v", cfg.Process)
+	}
 	_, err = Parse([]byte(`{"schema":"WORKBRIDGE_CONFIG_V1","read_roots":[],"write_roots":[],"limits":{},"process":{"enabled":false},"http":{},"surprise":true}`))
 	if err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("unknown field accepted: %v", err)
 	}
 }
 
-func TestRejectsNonLoopbackHTTPAndRelativeProcessExecutable(t *testing.T) {
+func TestRejectsNonLoopbackHTTPAndUnpinnedProcessExecutable(t *testing.T) {
 	root := filepath.Clean(t.TempDir())
 	cfg := Config{
 		Schema: Schema,
 		Process: ProcessConfig{
 			Enabled: true,
-			AllowedExecutables: []string{"cmd.exe"},
+			AllowedExecutables: []ExecutableGrant{{
+				Name: "shell",
+				Path: "cmd.exe",
+				SHA256: strings.Repeat("a", 64),
+			}},
 			WorkingRoots: []string{root},
 			MaxRuntimeSeconds: 10,
 			MaxOutputBytes: 1024,
+			MaxArgs: 8,
 		},
 		Limits: Limits{MaxReadBytes: 1024, MaxWriteBytes: 1024, MaxDirectoryEntries: 10},
 		HTTP: HTTPConfig{Listen: "0.0.0.0:8765", Path: "/mcp"},
@@ -50,5 +58,32 @@ func TestRejectsNonLoopbackHTTPAndRelativeProcessExecutable(t *testing.T) {
 	cfg.HTTP.Listen = "127.0.0.1:8765"
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Fatalf("relative executable accepted: %v", err)
+	}
+	cfg.Process.AllowedExecutables[0].Path = filepath.Join(root, "tool.exe")
+	cfg.Process.AllowedExecutables[0].SHA256 = "NOT-A-HASH"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "sha256") {
+		t.Fatalf("invalid executable identity accepted: %v", err)
+	}
+}
+
+func TestRejectsDuplicateGrantNamesAndBadTokenEnv(t *testing.T) {
+	root := filepath.Clean(t.TempDir())
+	grant := ExecutableGrant{Name: "tool", Path: filepath.Join(root, "tool.exe"), SHA256: strings.Repeat("a", 64)}
+	cfg := Config{
+		Schema: Schema,
+		Limits: Limits{MaxReadBytes: 1, MaxWriteBytes: 1, MaxDirectoryEntries: 1},
+		Process: ProcessConfig{
+			Enabled: true, AllowedExecutables: []ExecutableGrant{grant, grant},
+			WorkingRoots: []string{root}, MaxRuntimeSeconds: 1, MaxOutputBytes: 1, MaxArgs: 1,
+		},
+		HTTP: HTTPConfig{Listen: "127.0.0.1:1", Path: "/mcp"},
+	}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("duplicate grant name accepted: %v", err)
+	}
+	cfg.Process.Enabled = false
+	cfg.HTTP.BearerTokenEnv = "BAD=ENV"
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "environment variable") {
+		t.Fatalf("bad token env accepted: %v", err)
 	}
 }

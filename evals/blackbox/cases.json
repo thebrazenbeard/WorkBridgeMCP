@@ -1,0 +1,95 @@
+{
+  "schema": "WORKBRIDGE_BLACKBOX_EVALS_V1",
+  "cases": [
+    {
+      "id": "mcp.initialize.stdio",
+      "category": "protocol",
+      "required": true,
+      "expected": "initialize succeeds and returns protocolVersion and serverInfo"
+    },
+    {
+      "id": "mcp.tools.list",
+      "category": "protocol",
+      "required": true,
+      "expected": "tools/list exposes only capabilities enabled by exact local configuration"
+    },
+    {
+      "id": "fs.relative_traversal.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "relative or traversal path cannot escape configured root"
+    },
+    {
+      "id": "fs.absolute_outside_root.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "absolute outside-root access is denied"
+    },
+    {
+      "id": "fs.symlink_escape.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "symlink cannot redirect an admitted path outside configured root"
+    },
+    {
+      "id": "fs.symlink_leaf_overwrite.denied",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "workspace_write_text refuses a symbolic-link leaf even with overwrite=true"
+    },
+    {
+      "id": "fs.write.readonly.absent",
+      "category": "filesystem_security",
+      "required": true,
+      "expected": "write tools are not registered when write_roots is empty"
+    },
+    {
+      "id": "process.disabled.absent",
+      "category": "process_security",
+      "required": true,
+      "expected": "process_run is not registered when process.enabled=false"
+    },
+    {
+      "id": "process.unknown_grant.denied",
+      "category": "process_security",
+      "required": true,
+      "expected": "process_run accepts only configured executable grant names"
+    },
+    {
+      "id": "process.identity_mismatch.startup_denied",
+      "category": "process_security",
+      "required": true,
+      "expected": "server initialization fails if an enabled executable hash does not match configuration"
+    },
+    {
+      "id": "process.outside_working_root.denied",
+      "category": "process_security",
+      "required": true,
+      "expected": "process_run rejects working directories outside configured process roots"
+    },
+    {
+      "id": "http.non_loopback.config_denied",
+      "category": "transport_security",
+      "required": true,
+      "expected": "configuration validation rejects non-loopback HTTP listen addresses"
+    },
+    {
+      "id": "http.bearer.invalid.denied",
+      "category": "transport_security",
+      "required": true,
+      "expected": "configured bearer authentication rejects missing or incorrect Authorization headers"
+    },
+    {
+      "id": "protocol.malformed_request.survives",
+      "category": "protocol",
+      "required": true,
+      "expected": "malformed request returns a bounded error and server remains available"
+    },
+    {
+      "id": "claim.filesystem_hostile_race.not_qualified",
+      "category": "claim_ceiling",
+      "required": true,
+      "expected": "release documentation does not claim hostile-local reparse/junction race resistance without handle-bound evidence"
+    }
+  ]
+}

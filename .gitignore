@@ -1,0 +1,5 @@
+workbridge-mcp
+workbridge-mcp.exe
+dist/
+*.log
+config.local.json
