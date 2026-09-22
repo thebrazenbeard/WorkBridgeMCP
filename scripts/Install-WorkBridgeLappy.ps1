@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SourceCommit = "91d893a617c5abd31e797c9f90dfd4264d162077",
+    [string]$SourceCommit = "a4bf4600c3bc75ef65ed91223c2d3c11073c9959",
     [string]$GoVersion = "go1.25.12",
     [string]$InstallRoot = "C:\Program Files\WorkBridgeMCP",
     [string]$DataRoot = "C:\ProgramData\WorkBridgeMCP",
@@ -132,8 +132,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "go test failed" }
         & $go build -trimpath -o $built ./cmd/workbridge-mcp
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $built -PathType Leaf)) { throw "WorkBridge build failed" }
-        & (Join-Path $source "scripts\Test-WorkBridgeBinary.ps1") -Binary $built
-        if ($LASTEXITCODE -ne 0) { throw "WorkBridge black-box stdio smoke failed" }
+        & (Join-Path $source "scripts\Test-WorkBridgeHttpBinary.ps1") -Binary $built
+        if ($LASTEXITCODE -ne 0) { throw "WorkBridge PowerShell 5.1 HTTP smoke failed" }
     }
     finally { Pop-Location }
 
