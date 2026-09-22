@@ -120,8 +120,7 @@ func loadHTTPBearerToken(cfg *config.Config) (string, error) {
 	if !ok || token == "" {
 		return "", fmt.Errorf("HTTP bearer token environment variable %s is not set", name)
 	}
-	if strings.TrimSpace(token) != token || strings.ContainsAny(token, " 	
-") {
+	if strings.TrimSpace(token) != token || strings.ContainsAny(token, " \\t\\r\\n") {
 		return "", errors.New("HTTP bearer token must not contain whitespace")
 	}
 	if len(token) < 32 {
