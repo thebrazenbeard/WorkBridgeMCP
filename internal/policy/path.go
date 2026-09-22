@@ -1,8 +1,11 @@
 package policy
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -155,12 +158,105 @@ func (p *RootPolicy) Lstat(path string) (fs.FileInfo, string, error) {
 	return info, abs, nil
 }
 
-func (p *RootPolicy) Mkdir(path string, perm fs.FileMode) (string, error) {
+func (p *RootPolicy) Mkdir(path string, perm fs.FileMode, parents bool) (string, error) {
 	entry, rel, abs, err := p.match(path)
 	if err != nil {
 		return "", err
 	}
+	if parents {
+		if err := entry.root.MkdirAll(rel, perm); err != nil {
+			return "", err
+		}
+		return abs, nil
+	}
 	if err := entry.root.Mkdir(rel, perm); err != nil {
+		if !errors.Is(err, fs.ErrExist) {
+			return "", err
+		}
+		info, statErr := entry.root.Stat(rel)
+		if statErr != nil {
+			return "", statErr
+		}
+		if !info.IsDir() {
+			return "", err
+		}
+	}
+	return abs, nil
+}
+
+func (p *RootPolicy) AtomicWrite(path string, data []byte, perm fs.FileMode, overwrite bool) (string, error) {
+	entry, rel, abs, err := p.match(path)
+	if err != nil {
+		return "", err
+	}
+	if !overwrite {
+		f, err := entry.root.OpenFile(rel, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+		if err != nil {
+			return "", err
+		}
+		n, writeErr := f.Write(data)
+		if writeErr == nil && n != len(data) {
+			writeErr = io.ErrShortWrite
+		}
+		if writeErr == nil {
+			writeErr = f.Sync()
+		}
+		closeErr := f.Close()
+		if writeErr != nil {
+			return "", writeErr
+		}
+		if closeErr != nil {
+			return "", closeErr
+		}
+		return abs, nil
+	}
+
+	dir := filepath.Dir(rel)
+	base := filepath.Base(rel)
+	var tempRel string
+	var f *os.File
+	for attempt := 0; attempt < 8; attempt++ {
+		var nonce [12]byte
+		if _, err := rand.Read(nonce[:]); err != nil {
+			return "", fmt.Errorf("generate atomic-write nonce: %w", err)
+		}
+		name := "." + base + ".workbridge-" + hex.EncodeToString(nonce[:]) + ".tmp"
+		tempRel = name
+		if dir != "." {
+			tempRel = filepath.Join(dir, name)
+		}
+		f, err = entry.root.OpenFile(tempRel, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		break
+	}
+	if f == nil {
+		return "", errors.New("could not allocate atomic-write temporary file")
+	}
+	cleanup := func() { _ = entry.root.Remove(tempRel) }
+
+	n, writeErr := f.Write(data)
+	if writeErr == nil && n != len(data) {
+		writeErr = io.ErrShortWrite
+	}
+	if writeErr == nil {
+		writeErr = f.Sync()
+	}
+	closeErr := f.Close()
+	if writeErr != nil {
+		cleanup()
+		return "", writeErr
+	}
+	if closeErr != nil {
+		cleanup()
+		return "", closeErr
+	}
+	if err := entry.root.Rename(tempRel, rel); err != nil {
+		cleanup()
 		return "", err
 	}
 	return abs, nil

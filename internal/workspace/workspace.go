@@ -215,28 +215,16 @@ func (s *Service) WriteText(path, content string, overwrite bool) (int, error) {
 		return 0, err
 	}
 
-	flags := os.O_WRONLY | os.O_CREATE
-	if overwrite {
-		flags |= os.O_TRUNC
-	} else {
-		flags |= os.O_EXCL
-	}
-	f, _, err := s.write.OpenFile(path, flags, 0o600)
-	if err != nil {
+	if _, err := s.write.AtomicWrite(path, []byte(content), 0o600, overwrite); err != nil {
 		return 0, err
 	}
-	defer f.Close()
-	n, err := io.WriteString(f, content)
-	if err == nil {
-		err = f.Sync()
-	}
-	return n, err
+	return len(content), nil
 }
 
-func (s *Service) Mkdir(path string) error {
+func (s *Service) Mkdir(path string, parents bool) error {
 	if s.write.Empty() {
 		return errors.New("write capability is disabled")
 	}
-	_, err := s.write.Mkdir(path, 0o700)
+	_, err := s.write.Mkdir(path, 0o700, parents)
 	return err
 }

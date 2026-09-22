@@ -66,6 +66,13 @@ func TestReadListStatAndWriteBoundaries(t *testing.T) {
 	if string(got) != "changed" {
 		t.Fatalf("unexpected write: %q", got)
 	}
+	nestedDir := filepath.Join(root, "nested", "deep")
+	if err := s.Mkdir(nestedDir, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Mkdir(nestedDir, false); err != nil {
+		t.Fatalf("idempotent mkdir failed: %v", err)
+	}
 	link := filepath.Join(root, "link.txt")
 	if err := os.Symlink(newFile, link); err == nil {
 		if _, err := s.WriteText(link, "through-link", true); err == nil {

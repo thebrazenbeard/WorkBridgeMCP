@@ -55,6 +55,11 @@ type WriteOutput struct {
 	BytesWritten int `json:"bytes_written"`
 }
 
+type MkdirInput struct {
+	Path    string `json:"path" jsonschema:"absolute path admitted by configured write roots"`
+	Parents bool   `json:"parents,omitempty" jsonschema:"create missing parent directories when true"`
+}
+
 type MkdirOutput struct {
 	Created bool `json:"created"`
 }
@@ -101,7 +106,7 @@ func New(cfg *config.Config) (*Runtime, error) {
 		}, rt.writeText)
 		mcp.AddTool(server, &mcp.Tool{
 			Name: "workspace_mkdir",
-			Description: "Create one directory inside a configured write root. Recursive creation is intentionally not provided.",
+			Description: "Create an admitted directory, optionally including missing parents, inside configured write roots.",
 		}, rt.mkdir)
 	}
 	if pr.Enabled() {
@@ -158,8 +163,8 @@ func (rt *Runtime) writeText(_ context.Context, _ *mcp.CallToolRequest, input Wr
 	return nil, WriteOutput{BytesWritten: n}, err
 }
 
-func (rt *Runtime) mkdir(_ context.Context, _ *mcp.CallToolRequest, input PathInput) (*mcp.CallToolResult, MkdirOutput, error) {
-	err := rt.Workspace.Mkdir(input.Path)
+func (rt *Runtime) mkdir(_ context.Context, _ *mcp.CallToolRequest, input MkdirInput) (*mcp.CallToolResult, MkdirOutput, error) {
+	err := rt.Workspace.Mkdir(input.Path, input.Parents)
 	return nil, MkdirOutput{Created: err == nil}, err
 }
 
