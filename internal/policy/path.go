@@ -10,8 +10,8 @@ import (
 )
 
 type rootEntry struct {
-	path string
-	root *os.Root
+	paths []string
+	root  *os.Root
 }
 
 type RootPolicy struct {
@@ -25,37 +25,56 @@ func NewRootPolicy(roots []string) (*RootPolicy, error) {
 			p.Close()
 			return nil, fmt.Errorf("root must be absolute: %q", raw)
 		}
-		resolved, err := filepath.EvalSymlinks(filepath.Clean(raw))
-		if err != nil {
-			p.Close()
-			return nil, fmt.Errorf("resolve root %q: %w", raw, err)
-		}
-		abs, err := filepath.Abs(resolved)
+		configured, err := filepath.Abs(filepath.Clean(raw))
 		if err != nil {
 			p.Close()
 			return nil, err
 		}
-		abs = filepath.Clean(abs)
-		info, err := os.Stat(abs)
+		resolved, err := filepath.EvalSymlinks(configured)
 		if err != nil {
 			p.Close()
-			return nil, fmt.Errorf("stat root %q: %w", abs, err)
+			return nil, fmt.Errorf("resolve root %q: %w", raw, err)
+		}
+		resolved, err = filepath.Abs(resolved)
+		if err != nil {
+			p.Close()
+			return nil, err
+		}
+		resolved = filepath.Clean(resolved)
+		info, err := os.Stat(resolved)
+		if err != nil {
+			p.Close()
+			return nil, fmt.Errorf("stat root %q: %w", resolved, err)
 		}
 		if !info.IsDir() {
 			p.Close()
-			return nil, fmt.Errorf("root is not a directory: %q", abs)
+			return nil, fmt.Errorf("root is not a directory: %q", resolved)
 		}
-		r, err := os.OpenRoot(abs)
+		r, err := os.OpenRoot(resolved)
 		if err != nil {
 			p.Close()
-			return nil, fmt.Errorf("open root %q: %w", abs, err)
+			return nil, fmt.Errorf("open root %q: %w", resolved, err)
 		}
-		p.roots = append(p.roots, rootEntry{path: abs, root: r})
+		aliases := []string{configured}
+		if resolved != configured {
+			aliases = append(aliases, resolved)
+		}
+		p.roots = append(p.roots, rootEntry{paths: aliases, root: r})
 	}
 	sort.Slice(p.roots, func(i, j int) bool {
-		return len(p.roots[i].path) > len(p.roots[j].path)
+		return longestPath(p.roots[i].paths) > longestPath(p.roots[j].paths)
 	})
 	return p, nil
+}
+
+func longestPath(paths []string) int {
+	longest := 0
+	for _, path := range paths {
+		if len(path) > longest {
+			longest = len(path)
+		}
+	}
+	return longest
 }
 
 func (p *RootPolicy) Close() error {
@@ -160,11 +179,13 @@ func (p *RootPolicy) match(path string) (*rootEntry, string, string, error) {
 	}
 	abs = filepath.Clean(abs)
 	for i := range p.roots {
-		rel, err := filepath.Rel(p.roots[i].path, abs)
-		if err != nil || !filepath.IsLocal(rel) {
-			continue
+		for _, alias := range p.roots[i].paths {
+			rel, err := filepath.Rel(alias, abs)
+			if err != nil || !filepath.IsLocal(rel) {
+				continue
+			}
+			return &p.roots[i], rel, abs, nil
 		}
-		return &p.roots[i], rel, abs, nil
 	}
 	return nil, "", "", errors.New("path is outside configured roots")
 }
