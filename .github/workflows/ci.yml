@@ -36,29 +36,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: go build -trimpath -o workbridge-mcp.exe ./cmd/workbridge-mcp
-      - name: Stdio MCP smoke
+      - name: Stdio MCP smoke under Windows PowerShell 5.1
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/Test-WorkBridgeBinary.ps1 -Binary ./workbridge-mcp.exe
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-WorkBridgeBinary.ps1 -Binary .\workbridge-mcp.exe
       - name: Release packaging smoke
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/New-WorkBridgeRelease.ps1 -Binary ./workbridge-mcp.exe -OutputDirectory ./dist -Version ci
-      - name: Parse Lappy installer
+      - name: Parse Lappy installer under Windows PowerShell 5.1
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path ./scripts/Install-WorkBridgeLappy.ps1),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | Format-List | Out-String | Write-Error
-            exit 1
-          }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\scripts\Install-WorkBridgeLappy.ps1'),[ref]$tokens,[ref]$errors)|Out-Null; if($errors.Count -gt 0){$errors|Format-List|Out-String|Write-Error; exit 1}"
 
   windows-binary:
     runs-on: ubuntu-latest
