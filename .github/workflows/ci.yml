@@ -36,10 +36,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: go build -trimpath -o workbridge-mcp.exe ./cmd/workbridge-mcp
-      - name: Stdio MCP smoke under Windows PowerShell 5.1
+      - name: Stdio MCP smoke
         if: runner.os == 'Windows'
         shell: pwsh
-        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-WorkBridgeBinary.ps1 -Binary .\workbridge-mcp.exe
+        run: ./scripts/Test-WorkBridgeBinary.ps1 -Binary ./workbridge-mcp.exe
+      - name: HTTP MCP smoke under Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-WorkBridgeHttpBinary.ps1 -Binary .\workbridge-mcp.exe
       - name: Release packaging smoke
         if: runner.os == 'Windows'
         shell: pwsh
