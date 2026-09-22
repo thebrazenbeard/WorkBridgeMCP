@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SourceCommit = "1a5e66dcc1749a70b7b1a152b150340b78ca290f",
+    [string]$SourceCommit = "91d893a617c5abd31e797c9f90dfd4264d162077",
     [string]$GoVersion = "go1.25.12",
     [string]$InstallRoot = "C:\Program Files\WorkBridgeMCP",
     [string]$DataRoot = "C:\ProgramData\WorkBridgeMCP",
@@ -155,7 +155,8 @@ try {
         $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
         try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
         $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
-        [IO.File]::WriteAllBytes($tokenPath, [Text.Encoding]::UTF8.GetBytes($token))
+        $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+        [IO.File]::WriteAllText($tokenPath, $token, $utf8NoBom)
     }
     $token = [IO.File]::ReadAllText($tokenPath).Trim()
     if ($token.Length -lt 32 -or $token -match '\s') { throw "Stored WorkBridge HTTP token is invalid" }
@@ -185,7 +186,12 @@ try {
         }
     }
     $configJson = (($config | ConvertTo-Json -Depth 10) + [Environment]::NewLine)
-    [IO.File]::WriteAllBytes($configPath, [Text.Encoding]::UTF8.GetBytes($configJson))
+    if ($null -eq $utf8NoBom) { $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false }
+    [IO.File]::WriteAllText($configPath, $configJson, $utf8NoBom)
+    $configBytes = [IO.File]::ReadAllBytes($configPath)
+    if ($configBytes.Length -ge 3 -and $configBytes[0] -eq 0xEF -and $configBytes[1] -eq 0xBB -and $configBytes[2] -eq 0xBF) {
+        throw "Installed WorkBridge config unexpectedly contains a UTF-8 BOM"
+    }
 
     $runnerLines = @(
         '$ErrorActionPreference = "Stop"',
@@ -196,7 +202,8 @@ try {
         'exit $LASTEXITCODE'
     )
     $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [IO.File]::WriteAllBytes($runnerPath, [Text.Encoding]::UTF8.GetBytes($runnerText))
+    if ($null -eq $utf8NoBom) { $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false }
+    [IO.File]::WriteAllText($runnerPath, $runnerText, $utf8NoBom)
     Protect-PrivateDirectory -Path $DataRoot
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runnerPath + '"')
