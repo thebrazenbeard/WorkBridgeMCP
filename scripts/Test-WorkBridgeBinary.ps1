@@ -35,7 +35,7 @@ $config = [ordered]@{
     }
 }
 $configJson = ($config | ConvertTo-Json -Depth 8) + [Environment]::NewLine
-[IO.File]::WriteAllText($configPath, $configJson, (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllBytes($configPath, [Text.Encoding]::UTF8.GetBytes($configJson))
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $binaryPath
