@@ -11,7 +11,9 @@ wrapper, edits credentials, or exposes a listener by itself.
 A release directory can contain:
 
 - `workbridge-mcp.exe` — the built WorkBridgeMCP binary;
-- `WorkBridgeMCP.xml` — service-wrapper configuration rendered from the template;
+- `WorkBridgeMCP.xml.template` — source template for service-wrapper configuration;
+- `README.md`, `THIRD_PARTY_NOTICES.md`, and `release-manifest.json`;
+- `LICENSE` only when the repository actually contains one;
 - operator-owned configuration outside the release archive.
 
 ## Service wrapper model
@@ -37,3 +39,12 @@ For workstation use, prefer:
 
 Do not expose the HTTP transport to a non-loopback interface merely because the
 service wrapper can keep the process alive.
+
+
+## Qualification
+
+The CI Windows release job builds the executable natively, launches it under a generated
+least-authority configuration, completes MCP initialization, verifies the read-only
+`tools/list` surface, packages the release, verifies required archive members, and uploads
+the zip as a CI artifact. This qualifies the artifact build path; it does not install or
+start a persistent service.

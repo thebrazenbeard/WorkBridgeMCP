@@ -38,7 +38,7 @@ it globally.
 
 ## Build
 
-Requires Go 1.25+.
+Requires Go 1.25.12 or newer.
 
 ```bash
 go mod verify
@@ -56,7 +56,7 @@ go vet ./...
 go build -o workbridge-mcp.exe ./cmd/workbridge-mcp
 ```
 
-CI also cross-builds a Windows amd64 executable from Linux.
+CI cross-builds Windows amd64 from Linux and also builds the binary natively on Windows, performs a black-box MCP initialize/tools-list smoke, constructs the release zip, verifies its contents, and uploads that zip as a CI artifact.
 
 ## Configure
 

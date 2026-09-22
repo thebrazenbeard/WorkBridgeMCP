@@ -49,3 +49,41 @@ jobs:
           mkdir -p dist
           go build -trimpath -o dist/workbridge-mcp-windows-amd64.exe ./cmd/workbridge-mcp
           sha256sum dist/workbridge-mcp-windows-amd64.exe
+
+
+  windows-release:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
+          cache: true
+      - name: Build native Windows binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go build -trimpath -o dist/workbridge-mcp.exe ./cmd/workbridge-mcp
+      - name: Black-box MCP smoke
+        shell: pwsh
+        run: ./scripts/Test-WorkBridgeBinary.ps1 -Binary ./dist/workbridge-mcp.exe
+      - name: Build release archive
+        shell: pwsh
+        run: |
+          ./scripts/New-WorkBridgeRelease.ps1 -Binary ./dist/workbridge-mcp.exe -OutputDirectory ./dist/release -Version ci
+          $archive = Resolve-Path ./dist/release/workbridge-mcp-ci-windows-x64.zip
+          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
+            throw "Release archive was not created"
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath ./dist/release-verify
+          foreach ($required in @("workbridge-mcp.exe","README.md","THIRD_PARTY_NOTICES.md","WorkBridgeMCP.xml.template","release-manifest.json")) {
+            if (-not (Test-Path -LiteralPath (Join-Path ./dist/release-verify $required) -PathType Leaf)) {
+              throw "Release archive missing $required"
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workbridge-mcp-windows-x64
+          path: dist/release/workbridge-mcp-ci-windows-x64.zip
+          if-no-files-found: error
