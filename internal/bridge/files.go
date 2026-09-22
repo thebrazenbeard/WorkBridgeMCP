@@ -95,15 +95,15 @@ func (b *Bridge) ListDirectory(path string, maxEntries int) (map[string]any, err
 		return nil, err
 	}
 	defer f.Close()
-	entries, err := f.ReadDir(-1)
+	entries, err := f.ReadDir(maxEntries + 1)
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 	truncated := len(entries) > maxEntries
 	if truncated {
 		entries = entries[:maxEntries]
 	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 	out := make([]map[string]any, 0, len(entries))
 	for _, entry := range entries {
 		item := map[string]any{"name": entry.Name(), "is_directory": entry.IsDir()}
