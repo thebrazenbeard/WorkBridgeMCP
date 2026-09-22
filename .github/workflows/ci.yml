@@ -48,7 +48,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\scripts\Install-WorkBridgeLappy.ps1'),[ref]$tokens,[ref]$errors)|Out-Null; if($errors.Count -gt 0){$errors|Format-List|Out-String|Write-Error; exit 1}"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ".\scripts\Install-WorkBridgeLappy.ps1"),[ref]$tokens,[ref]$errors)|Out-Null; if($errors.Count -gt 0){$errors|Format-List|Out-String|Write-Error; exit 1}'
 
   windows-binary:
     runs-on: ubuntu-latest
