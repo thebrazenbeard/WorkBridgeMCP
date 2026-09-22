@@ -66,6 +66,19 @@ func (b *Bridge) HasRead() bool    { return b.readPolicy != nil && !b.readPolicy
 func (b *Bridge) HasWrite() bool   { return b.writePolicy != nil && !b.writePolicy.Empty() }
 func (b *Bridge) HasProcess() bool { return b.cfg.Process.Enabled }
 
+func (b *Bridge) Close() error {
+	var first error
+	for _, p := range []*policy.RootPolicy{b.readPolicy, b.writePolicy, b.workingPolicy} {
+		if p == nil {
+			continue
+		}
+		if err := p.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
 func (b *Bridge) Info() map[string]any {
 	host, _ := os.Hostname()
 	return map[string]any{

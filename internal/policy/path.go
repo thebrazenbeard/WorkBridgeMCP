@@ -6,133 +6,161 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
+	"sort"
 )
 
+type rootEntry struct {
+	path string
+	root *os.Root
+}
+
 type RootPolicy struct {
-	roots []string
+	roots []rootEntry
 }
 
 func NewRootPolicy(roots []string) (*RootPolicy, error) {
 	p := &RootPolicy{}
-	for _, root := range roots {
-		if !filepath.IsAbs(root) {
-			return nil, fmt.Errorf("root must be absolute: %q", root)
+	for _, raw := range roots {
+		if !filepath.IsAbs(raw) {
+			p.Close()
+			return nil, fmt.Errorf("root must be absolute: %q", raw)
 		}
-		info, err := os.Stat(root)
+		resolved, err := filepath.EvalSymlinks(filepath.Clean(raw))
 		if err != nil {
-			return nil, fmt.Errorf("stat root %q: %w", root, err)
-		}
-		if !info.IsDir() {
-			return nil, fmt.Errorf("root is not a directory: %q", root)
-		}
-		resolved, err := filepath.EvalSymlinks(filepath.Clean(root))
-		if err != nil {
-			return nil, fmt.Errorf("resolve root %q: %w", root, err)
+			p.Close()
+			return nil, fmt.Errorf("resolve root %q: %w", raw, err)
 		}
 		abs, err := filepath.Abs(resolved)
 		if err != nil {
+			p.Close()
 			return nil, err
 		}
-		p.roots = append(p.roots, filepath.Clean(abs))
+		abs = filepath.Clean(abs)
+		info, err := os.Stat(abs)
+		if err != nil {
+			p.Close()
+			return nil, fmt.Errorf("stat root %q: %w", abs, err)
+		}
+		if !info.IsDir() {
+			p.Close()
+			return nil, fmt.Errorf("root is not a directory: %q", abs)
+		}
+		r, err := os.OpenRoot(abs)
+		if err != nil {
+			p.Close()
+			return nil, fmt.Errorf("open root %q: %w", abs, err)
+		}
+		p.roots = append(p.roots, rootEntry{path: abs, root: r})
 	}
+	// Prefer the most-specific configured root when roots overlap.
+	sort.Slice(p.roots, func(i, j int) bool {
+		return len(p.roots[i].path) > len(p.roots[j].path)
+	})
 	return p, nil
 }
 
-func (p *RootPolicy) Empty() bool { return p == nil || len(p.roots) == 0 }
+func (p *RootPolicy) Close() error {
+	if p == nil {
+		return nil
+	}
+	var first error
+	for i := range p.roots {
+		if p.roots[i].root == nil {
+			continue
+		}
+		if err := p.roots[i].root.Close(); err != nil && first == nil {
+			first = err
+		}
+		p.roots[i].root = nil
+	}
+	return first
+}
+
+func (p *RootPolicy) Empty() bool {
+	return p == nil || len(p.roots) == 0
+}
 
 func (p *RootPolicy) ResolveExisting(path string) (string, error) {
-	if p.Empty() {
-		return "", errors.New("no roots configured")
-	}
-	if !filepath.IsAbs(path) {
-		return "", errors.New("path must be absolute")
-	}
-	resolved, err := filepath.EvalSymlinks(filepath.Clean(path))
+	entry, rel, abs, err := p.match(path)
 	if err != nil {
 		return "", err
 	}
-	abs, err := filepath.Abs(resolved)
-	if err != nil {
+	if _, err := entry.root.Stat(rel); err != nil {
 		return "", err
-	}
-	abs = filepath.Clean(abs)
-	if !p.contains(abs) {
-		return "", errors.New("path is outside configured roots")
 	}
 	return abs, nil
 }
 
-func (p *RootPolicy) ResolveForCreate(path string) (string, error) {
-	if p.Empty() {
-		return "", errors.New("no roots configured")
-	}
-	if !filepath.IsAbs(path) {
-		return "", errors.New("path must be absolute")
-	}
-	clean := filepath.Clean(path)
-	if _, err := os.Lstat(clean); err == nil {
-		return p.ResolveExisting(clean)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", err
-	}
-
-	cur := clean
-	var missing []string
-	for {
-		parent := filepath.Dir(cur)
-		if parent == cur {
-			return "", errors.New("no existing ancestor found")
-		}
-		missing = append(missing, filepath.Base(cur))
-		cur = parent
-		if _, err := os.Lstat(cur); err == nil {
-			break
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return "", err
-		}
-	}
-	resolvedAncestor, err := filepath.EvalSymlinks(cur)
+func (p *RootPolicy) Open(path string) (*os.File, string, error) {
+	entry, rel, abs, err := p.match(path)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	abs, err := filepath.Abs(resolvedAncestor)
+	f, err := entry.root.Open(rel)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	candidate := filepath.Clean(abs)
-	for i := len(missing) - 1; i >= 0; i-- {
-		candidate = filepath.Join(candidate, missing[i])
-	}
-	if !p.contains(candidate) {
-		return "", errors.New("path is outside configured roots")
-	}
-	return candidate, nil
+	return f, abs, nil
 }
 
-func (p *RootPolicy) contains(target string) bool {
-	for _, root := range p.roots {
-		rel, err := filepath.Rel(root, target)
-		if err != nil {
-			continue
-		}
-		if rel == "." {
-			return true
-		}
-		if filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			continue
-		}
-		if runtime.GOOS == "windows" {
-			rootFold := strings.ToLower(filepath.Clean(root))
-			targetFold := strings.ToLower(filepath.Clean(target))
-			prefix := rootFold + string(filepath.Separator)
-			if targetFold == rootFold || strings.HasPrefix(targetFold, prefix) {
-				return true
-			}
-			continue
-		}
-		return true
+func (p *RootPolicy) OpenFile(path string, flag int, perm fs.FileMode) (*os.File, string, error) {
+	entry, rel, abs, err := p.match(path)
+	if err != nil {
+		return nil, "", err
 	}
-	return false
+	f, err := entry.root.OpenFile(rel, flag, perm)
+	if err != nil {
+		return nil, "", err
+	}
+	return f, abs, nil
+}
+
+func (p *RootPolicy) Stat(path string) (fs.FileInfo, string, error) {
+	entry, rel, abs, err := p.match(path)
+	if err != nil {
+		return nil, "", err
+	}
+	info, err := entry.root.Stat(rel)
+	if err != nil {
+		return nil, "", err
+	}
+	return info, abs, nil
+}
+
+func (p *RootPolicy) Mkdir(path string, perm fs.FileMode, parents bool) (string, error) {
+	entry, rel, abs, err := p.match(path)
+	if err != nil {
+		return "", err
+	}
+	if parents {
+		err = entry.root.MkdirAll(rel, perm)
+	} else {
+		err = entry.root.Mkdir(rel, perm)
+	}
+	if err != nil {
+		return "", err
+	}
+	return abs, nil
+}
+
+func (p *RootPolicy) match(path string) (*rootEntry, string, string, error) {
+	if p.Empty() {
+		return nil, "", "", errors.New("no roots configured")
+	}
+	if !filepath.IsAbs(path) {
+		return nil, "", "", errors.New("path must be absolute")
+	}
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return nil, "", "", err
+	}
+	abs = filepath.Clean(abs)
+	for i := range p.roots {
+		rel, err := filepath.Rel(p.roots[i].path, abs)
+		if err != nil || !filepath.IsLocal(rel) {
+			continue
+		}
+		return &p.roots[i], rel, abs, nil
+	}
+	return nil, "", "", errors.New("path is outside configured roots")
 }

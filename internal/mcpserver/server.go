@@ -89,11 +89,7 @@ func New(b *bridge.Bridge, version string) *mcp.Server {
 				out, err := b.MakeDirectory(in.Path, in.Parents)
 				return nil, out, err
 			})
-		mcp.AddTool(s, mutationTool("move_path", "Move a path between locations under allowed write roots without overwriting the destination", false),
-			func(ctx context.Context, req *mcp.CallToolRequest, in movePathInput) (*mcp.CallToolResult, map[string]any, error) {
-				out, err := b.MovePath(in.Source, in.Destination)
-				return nil, out, err
-			})
+
 	}
 
 	if b.HasProcess() {
