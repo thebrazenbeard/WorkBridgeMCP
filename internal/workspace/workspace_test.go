@@ -33,6 +33,7 @@ func TestReadListStatAndWriteBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	text, err := s.ReadText(file)
 	if err != nil || text != "hello" {
 		t.Fatalf("read=%q err=%v", text, err)
@@ -72,6 +73,7 @@ func TestWriteDisabledAndOutsideRootDenied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	if _, err := s.WriteText(filepath.Join(root, "x.txt"), "x", false); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("disabled write accepted: %v", err)
 	}

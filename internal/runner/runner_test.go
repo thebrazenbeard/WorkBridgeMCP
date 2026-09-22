@@ -55,6 +55,7 @@ func TestPinnedExecutableRunsInBoundedWorkingRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	res, err := r.Run(ctx, "echo", args, root)
@@ -90,6 +91,7 @@ func TestRejectsWrongHashAndOutsideWorkingRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r.Close()
 	if _, err := r.Run(context.Background(), "echo", nil, filepath.Clean(t.TempDir())); err == nil {
 		t.Fatal("outside working root accepted")
 	}
