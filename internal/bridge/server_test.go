@@ -28,6 +28,7 @@ func TestMCPServerListsAndCallsReadTool(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer rt.Close()
 	ctx := context.Background()
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := rt.Server.Connect(ctx, serverTransport, nil)

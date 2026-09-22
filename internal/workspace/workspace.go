@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"unicode/utf8"
 
@@ -43,6 +42,7 @@ func New(cfg *config.Config) (*Service, error) {
 	}
 	write, err := policy.NewRootPolicy(cfg.WriteRoots)
 	if err != nil {
+		_ = read.Close()
 		return nil, err
 	}
 	return &Service{
@@ -53,26 +53,45 @@ func New(cfg *config.Config) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) CanWrite() bool { return !s.write.Empty() }
+func (s *Service) Close() error {
+	var first error
+	if s == nil {
+		return nil
+	}
+	if s.read != nil {
+		if err := s.read.Close(); err != nil {
+			first = err
+		}
+	}
+	if s.write != nil {
+		if err := s.write.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
+func (s *Service) CanWrite() bool { return s != nil && s.write != nil && !s.write.Empty() }
 
 func (s *Service) List(path string) ([]Entry, error) {
-	resolved, err := s.read.ResolveExisting(path)
+	f, _, err := s.read.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(resolved)
+	defer f.Close()
+	info, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	if !info.IsDir() {
 		return nil, errors.New("path is not a directory")
 	}
-	items, err := os.ReadDir(resolved)
+	items, err := f.ReadDir(s.maxEntries + 1)
 	if err != nil {
 		return nil, err
 	}
 	if len(items) > s.maxEntries {
-		return nil, fmt.Errorf("directory has %d entries; limit is %d", len(items), s.maxEntries)
+		return nil, fmt.Errorf("directory exceeds entry limit %d", s.maxEntries)
 	}
 	out := make([]Entry, 0, len(items))
 	for _, item := range items {
@@ -90,11 +109,7 @@ func (s *Service) List(path string) ([]Entry, error) {
 }
 
 func (s *Service) Stat(path string) (*Stat, error) {
-	resolved, err := s.read.ResolveExisting(path)
-	if err != nil {
-		return nil, err
-	}
-	info, err := os.Stat(resolved)
+	info, resolved, err := s.read.Stat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +120,7 @@ func (s *Service) Stat(path string) (*Stat, error) {
 }
 
 func (s *Service) ReadText(path string) (string, error) {
-	resolved, err := s.read.ResolveExisting(path)
-	if err != nil {
-		return "", err
-	}
-	f, err := os.Open(resolved)
+	f, _, err := s.read.Open(path)
 	if err != nil {
 		return "", err
 	}
@@ -138,28 +149,14 @@ func (s *Service) ReadText(path string) (string, error) {
 }
 
 func (s *Service) WriteText(path, content string, overwrite bool) (int, error) {
-	if s.write.Empty() {
+	if !s.CanWrite() {
 		return 0, errors.New("write capability is disabled")
 	}
 	if int64(len(content)) > s.maxWrite {
 		return 0, fmt.Errorf("write size %d exceeds limit %d", len(content), s.maxWrite)
 	}
-	clean := filepath.Clean(path)
-	if info, err := os.Lstat(clean); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return 0, errors.New("refusing to overwrite a symbolic link")
-	} else if err != nil && !os.IsNotExist(err) {
-		return 0, err
-	}
-	candidate, err := s.write.ResolveForCreate(path)
-	if err != nil {
-		return 0, err
-	}
-	parent, err := s.write.ResolveExisting(filepath.Dir(candidate))
-	if err != nil {
-		return 0, err
-	}
-	target := filepath.Join(parent, filepath.Base(candidate))
-	if info, err := os.Lstat(target); err == nil {
+
+	if info, _, err := s.write.Lstat(path); err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return 0, errors.New("refusing to overwrite a symbolic link")
 		}
@@ -169,24 +166,17 @@ func (s *Service) WriteText(path, content string, overwrite bool) (int, error) {
 		if !overwrite {
 			return 0, errors.New("target already exists; set overwrite=true to replace it")
 		}
-		resolved, err := s.write.ResolveExisting(target)
-		if err != nil {
-			return 0, err
-		}
-		f, err := os.OpenFile(resolved, os.O_WRONLY|os.O_TRUNC, 0)
-		if err != nil {
-			return 0, err
-		}
-		defer f.Close()
-		n, err := io.WriteString(f, content)
-		if err == nil {
-			err = f.Sync()
-		}
-		return n, err
 	} else if !os.IsNotExist(err) {
 		return 0, err
 	}
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+
+	flags := os.O_WRONLY | os.O_CREATE
+	if overwrite {
+		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_EXCL
+	}
+	f, _, err := s.write.OpenFile(path, flags, 0o600)
 	if err != nil {
 		return 0, err
 	}
@@ -199,17 +189,9 @@ func (s *Service) WriteText(path, content string, overwrite bool) (int, error) {
 }
 
 func (s *Service) Mkdir(path string) error {
-	if s.write.Empty() {
+	if !s.CanWrite() {
 		return errors.New("write capability is disabled")
 	}
-	candidate, err := s.write.ResolveForCreate(path)
-	if err != nil {
-		return err
-	}
-	parent, err := s.write.ResolveExisting(filepath.Dir(candidate))
-	if err != nil {
-		return err
-	}
-	target := filepath.Join(parent, filepath.Base(candidate))
-	return os.Mkdir(target, 0o700)
+	_, err := s.write.Mkdir(path, 0o700)
+	return err
 }

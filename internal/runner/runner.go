@@ -59,24 +59,30 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 	for _, item := range cfg.AllowedExecutables {
 		resolved, err := filepath.EvalSymlinks(filepath.Clean(item.Path))
 		if err != nil {
+			_ = r.Close()
 			return nil, fmt.Errorf("resolve executable %q: %w", item.Name, err)
 		}
 		resolved, err = filepath.Abs(resolved)
 		if err != nil {
+			_ = r.Close()
 			return nil, err
 		}
 		info, err := os.Stat(resolved)
 		if err != nil {
+			_ = r.Close()
 			return nil, fmt.Errorf("stat executable %q: %w", item.Name, err)
 		}
 		if !info.Mode().IsRegular() {
+			_ = r.Close()
 			return nil, fmt.Errorf("executable %q is not a regular file", item.Name)
 		}
 		digest, err := hashFile(resolved)
 		if err != nil {
+			_ = r.Close()
 			return nil, err
 		}
 		if digest != item.SHA256 {
+			_ = r.Close()
 			return nil, fmt.Errorf("executable %q sha256 mismatch", item.Name)
 		}
 		r.grants[item.Name] = grant{path: filepath.Clean(resolved), sha256: digest}
@@ -85,6 +91,13 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 }
 
 func (r *Runner) Enabled() bool { return r != nil && r.enabled }
+
+func (r *Runner) Close() error {
+	if r == nil || r.roots == nil {
+		return nil
+	}
+	return r.roots.Close()
+}
 
 func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir string) (*Result, error) {
 	if !r.Enabled() {

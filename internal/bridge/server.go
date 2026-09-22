@@ -72,6 +72,7 @@ func New(cfg *config.Config) (*Runtime, error) {
 	}
 	pr, err := runner.New(cfg.Process)
 	if err != nil {
+		_ = ws.Close()
 		return nil, fmt.Errorf("process runner: %w", err)
 	}
 	server := mcp.NewServer(&mcp.Implementation{Name: "workbridge-mcp", Version: Version}, nil)
@@ -149,4 +150,22 @@ func (rt *Runtime) mkdir(_ context.Context, _ *mcp.CallToolRequest, input PathIn
 func (rt *Runtime) run(ctx context.Context, _ *mcp.CallToolRequest, input RunInput) (*mcp.CallToolResult, *runner.Result, error) {
 	result, err := rt.Runner.Run(ctx, input.Executable, input.Args, input.WorkingDir)
 	return nil, result, err
+}
+
+func (rt *Runtime) Close() error {
+	if rt == nil {
+		return nil
+	}
+	var first error
+	if rt.Workspace != nil {
+		if err := rt.Workspace.Close(); err != nil {
+			first = err
+		}
+	}
+	if rt.Runner != nil {
+		if err := rt.Runner.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }

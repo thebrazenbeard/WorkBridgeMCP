@@ -43,6 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("initialize WorkBridge: %v", err)
 	}
+	defer rt.Close()
 
 	switch strings.ToLower(*transport) {
 	case "stdio":
