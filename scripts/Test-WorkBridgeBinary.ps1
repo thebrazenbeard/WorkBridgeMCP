@@ -45,13 +45,21 @@ $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
 $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
-$psi.StandardInputEncoding = $utf8NoBom
-$psi.StandardOutputEncoding = $utf8NoBom
-$psi.StandardErrorEncoding = $utf8NoBom
 $psi.CreateNoWindow = $true
 
 $process = New-Object System.Diagnostics.Process
 $process.StartInfo = $psi
+
+function Write-JsonRpcLine {
+    param(
+        [Parameter(Mandatory=$true)]$Process,
+        [Parameter(Mandatory=$true)][string]$Line
+    )
+
+    $bytes = $utf8NoBom.GetBytes($Line + [Environment]::NewLine)
+    $Process.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $Process.StandardInput.BaseStream.Flush()
+}
 
 function Read-JsonRpcResponse {
     param(
@@ -95,8 +103,7 @@ try {
         }
     } | ConvertTo-Json -Compress -Depth 8
 
-    $process.StandardInput.WriteLine($initialize)
-    $process.StandardInput.Flush()
+    Write-JsonRpcLine -Process $process -Line $initialize
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $response = Read-JsonRpcResponse -Process $process -Id 1 -Deadline $deadline
@@ -117,7 +124,7 @@ try {
         method = "notifications/initialized"
         params = @{}
     } | ConvertTo-Json -Compress -Depth 4
-    $process.StandardInput.WriteLine($initialized)
+    Write-JsonRpcLine -Process $process -Line $initialized
 
     $toolsList = @{
         jsonrpc = "2.0"
@@ -125,8 +132,7 @@ try {
         method = "tools/list"
         params = @{}
     } | ConvertTo-Json -Compress -Depth 4
-    $process.StandardInput.WriteLine($toolsList)
-    $process.StandardInput.Flush()
+    Write-JsonRpcLine -Process $process -Line $toolsList
 
     $toolsResponse = Read-JsonRpcResponse -Process $process -Id 2 -Deadline ([DateTime]::UtcNow.AddSeconds($TimeoutSeconds))
     if ($null -eq $toolsResponse) {
