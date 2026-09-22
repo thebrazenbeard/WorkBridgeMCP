@@ -1,0 +1,2 @@
+# WorkBridgeMCP
+Workstation Bridge MCP
