@@ -16,6 +16,8 @@ func TestRootPolicyAllowsInsideAndRejectsOutside(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer p.Close()
+
 	if _, err := p.ResolveExisting(inside); err != nil {
 		t.Fatalf("inside denied: %v", err)
 	}
@@ -26,12 +28,9 @@ func TestRootPolicyAllowsInsideAndRejectsOutside(t *testing.T) {
 	if _, err := p.ResolveExisting(outside); err == nil {
 		t.Fatal("outside path accepted")
 	}
-	if _, err := p.ResolveForCreate(filepath.Join(root, "new", "child.txt")); err != nil {
-		t.Fatalf("inside create denied: %v", err)
-	}
 }
 
-func TestRootPolicyRejectsSymlinkEscape(t *testing.T) {
+func TestRootPolicyRejectsSymlinkEscapeAtOperationTime(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
 	link := filepath.Join(root, "escape")
@@ -42,7 +41,38 @@ func TestRootPolicyRejectsSymlinkEscape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.ResolveForCreate(filepath.Join(link, "x.txt")); err == nil {
-		t.Fatal("symlink escape accepted")
+	defer p.Close()
+
+	if _, _, err := p.OpenFile(
+		filepath.Join(link, "x.txt"),
+		os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+		0o600,
+	); err == nil {
+		t.Fatal("os.Root permitted symlink escape")
+	}
+}
+
+func TestRootPolicyLstatDoesNotFollowLeafSymlink(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.txt")
+	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	p, err := NewRootPolicy([]string{root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	info, _, err := p.Lstat(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("Lstat followed leaf symlink")
 	}
 }
