@@ -20,8 +20,8 @@ missing, empty, shorter than 32 bytes, or contains whitespace.
 WorkBridge uses Go 1.25 `os.Root` for read/write roots.
 
 A configured root is opened once. Operations use root-relative `Open`, `OpenFile`,
-`Stat`, `Lstat`, and `Mkdir` calls rather than accepting a path after a separate
-global path-validation step.
+`Stat`, `Lstat`, `Mkdir`/`MkdirAll`, `Remove`, and `Rename` calls rather than
+accepting a path after a separate global path-validation step.
 
 Per Go's `os.Root` contract, methods can access only files/directories beneath the root;
 symbolic links may be followed only when they remain beneath the root, and absolute
@@ -42,7 +42,8 @@ Write operations:
 - create new files with exclusive creation;
 - statically refuse symbolic-link leaf overwrite;
 - require `overwrite=true` for existing files;
-- create only one directory level at a time.
+- replace existing regular files through a confined same-root temporary file plus rename;
+- support idempotent directory creation, with recursive parent creation only when explicitly requested.
 
 ### Current claim ceiling
 

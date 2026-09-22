@@ -48,3 +48,8 @@ least-authority configuration, completes MCP initialization, verifies the read-o
 `tools/list` surface, packages the release, verifies required archive members, and uploads
 the zip as a CI artifact. This qualifies the artifact build path; it does not install or
 start a persistent service.
+
+
+The release helper requires an exact source commit and checks the built executable with
+`go version -m`. Packaging fails if the embedded `vcs.revision` differs or if Go reports
+`vcs.modified=true`. The release manifest records that verified source commit.
