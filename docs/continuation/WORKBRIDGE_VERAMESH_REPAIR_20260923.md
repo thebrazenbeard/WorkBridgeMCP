@@ -15,9 +15,9 @@ Fresh-check refs, checks, and Lappy state before using it.
 
 - A profile without read roots no longer advertises unusable read tools; an MCP tools/list regression checks the health-only profile.
 - The Lappy installer waits for a previous listener to exit and verifies that the post-start listener belongs to the installed binary and the scheduled task is running.
-- Its default source pin is now the code-bearing repair commit `613c3df0e7bd1d43b123d249e3aaca4366852546`, rather than an older pre-repair commit.
+- Its default source pin is now the code-bearing native-stderr repair commit `d9e8881ca6ffa17ea5b98a6af8c0ef2b2d171f15`. The scheduled-task runner uses `Start-Process` with native stdout/stderr redirection instead of directly invoking the long-running Go process through a PowerShell pipeline.
 - It verifies the existing VeraPort config hash alongside the identity/controller file snapshot.
-- Windows PowerShell 5.1 and PowerShell 7 listener-guard checks: PASS.
+- Windows PowerShell 5.1 and PowerShell 7 listener-guard checks: PASS. A Lappy reproduction proved that `$ErrorActionPreference = "Stop"` plus direct native invocation converted ordinary WorkBridge stderr logging into `NativeCommandError`; the new runner structure removes that failure mode while retaining strict PowerShell error handling.
 - Go 1.25.12 `go test ./...`, `go vet ./...`, and `go build ./cmd/workbridge-mcp`: PASS locally on Windows.
 
 ## Source acceptance and remaining gates
@@ -26,7 +26,7 @@ Fresh-check refs, checks, and Lappy state before using it.
 - The exact-head local binary had SHA-256 `3853be9cb3f0af1ad833e29e1eb022906a0979e3531534147573ae8daccfc62a`. Stdio MCP initialize/tools-list and authenticated HTTP checks passed; unauthorized HTTP health returned 401. The VeraMesh adapter's local real-binary integration suite passed against that binary.
 - VeraMesh draft PR #33 added an exact WorkBridge checkout to its Windows real-HTTP integration job. Its initial CI, reference, and CodeQL runs passed. Refresh its WorkBridge source pin if this WorkBridge branch head moves.
 - The separate GitHub security-agent job failed before review because its requested model was unsupported. This is neither a source test failure nor an independent security review pass.
-- Lappy remained offline at the latest available Remote Desktop Commander check. There is no live Lappy install/runtime/ChatGPT effect readback. Installation, service registration, credentials, and ChatGPT registration remain separate protected effects.
+- Lappy is reachable through the verified self-hosted runner `LAPPY-vera-blender`; Remote Desktop Commander is not required for this path. A normal-UAC install attempt against the predecessor runner failed its local-health gate, and a live reproduction isolated the failure to PowerShell native-stderr handling. Persistent installation must be re-qualified against the new exact source; no successful persistent runtime/ChatGPT effect is claimed by this record.
 
 ## Recovery after a rate or context limit
 
