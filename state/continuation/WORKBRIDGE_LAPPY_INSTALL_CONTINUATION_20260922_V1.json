@@ -1,0 +1,57 @@
+{
+  "schema": "WORKBRIDGE_LAPPY_INSTALL_CONTINUATION_V1",
+  "saved_at_utc": "2026-09-23T00:17:00Z",
+  "repository": "thebrazenbeard/WorkBridgeMCP",
+  "continuation_branch": "state/workbridge-lappy-install-continuation-20260922-v1",
+  "live_subject": {
+    "pr": 5,
+    "branch": "repair/workbridge-current-main-v1-20260922",
+    "head": "92c66159d9b610a94f59066ab2bb6416f4513093",
+    "base": "12bcbec3a4bda69e8b9361317feb8e9d9d47b6df",
+    "ci": {
+      "run_id": 35797931646,
+      "status": "PASS"
+    }
+  },
+  "installer": {
+    "path": "scripts/Install-WorkBridgeLappy.ps1",
+    "source_commit": "a4bf4600c3bc75ef65ed91223c2d3c11073c9959",
+    "source_ci": {
+      "run_id": 35797814620,
+      "status": "PASS"
+    },
+    "install_root": "C:\\Program Files\\WorkBridgeMCP",
+    "data_root": "C:\\ProgramData\\WorkBridgeMCP",
+    "listen": "127.0.0.1:8765",
+    "mcp_path": "/mcp",
+    "process_enabled": false
+  },
+  "live_authority": {
+    "install_and_start_on_lappy": true,
+    "preserve_veraport_identity": true,
+    "process_execution_must_remain_disabled": true,
+    "merge_authorized": false,
+    "widen_network_authority": false
+  },
+  "prior_failure": {
+    "phase": "pre-install black-box smoke",
+    "cause": "Windows PowerShell 5.1 UTF-8 BOM in generated JSON config",
+    "workstation_effect": false,
+    "repaired": true
+  },
+  "companion_veramesh": {
+    "repository": "thebrazenbeard/vera-mesh",
+    "pr": 25,
+    "branch": "work/veramesh-rdc-replacement-v1-20260922",
+    "head": "60d233c8ccc25871b0666d00c53fa9be26c7cc74",
+    "transport_to_lappy": "QUALIFIED",
+    "application_auth": "QUALIFIED",
+    "lane_list": "PASS",
+    "granted_capability_classes": [
+      "fs.read",
+      "fs.write"
+    ],
+    "rdc_used": false
+  },
+  "next": "Fresh-check PR #5 exact head/CI, then resume the authorized Lappy WorkBridge installer and qualify runtime before wiring VeraMesh to WorkBridge."
+}
