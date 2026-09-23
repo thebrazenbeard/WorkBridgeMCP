@@ -44,4 +44,16 @@ Assert-ListenerOwnedByBinary -LocalPort 8765 -BinaryPath $binary
 $script:TestListeners = @([pscustomobject]@{ LocalAddress = '0.0.0.0'; OwningProcess = 1234 })
 Assert-Throws { Assert-ListenerOwnedByBinary -LocalPort 8765 -BinaryPath $binary } 'non-loopback listener'
 
+
+$installerText = [IO.File]::ReadAllText($installer)
+if (-not $installerText.Contains('$process = Start-Process -FilePath')) {
+    throw 'Installed runner does not isolate native stderr from PowerShell error handling.'
+}
+if (-not $installerText.Contains('-RedirectStandardOutput') -or -not $installerText.Contains('-RedirectStandardError')) {
+    throw 'Installed runner does not redirect native stdout/stderr through Start-Process.'
+}
+if ($installerText.Contains('& "{0}" --config "{1}" --transport http')) {
+    throw 'Installed runner still directly invokes WorkBridge through the PowerShell native pipeline.'
+}
+
 Write-Host 'Lappy installer listener ownership guards: PASS'
