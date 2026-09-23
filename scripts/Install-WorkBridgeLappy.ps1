@@ -192,13 +192,20 @@ try {
         throw "Installed WorkBridge config unexpectedly contains a UTF-8 BOM"
     }
 
+    $runnerErrorPath = Join-Path $DataRoot "runner-error.log"
     $runnerLines = @(
         '$ErrorActionPreference = "Stop"',
-        ('$token = [IO.File]::ReadAllText("{0}").Trim()' -f $tokenPath),
-        'if ($token.Length -lt 32 -or $token -match ''\s'') { throw "Invalid WorkBridge token" }',
-        '$env:WORKBRIDGE_HTTP_TOKEN = $token',
-        ('& "{0}" --config "{1}" --transport http 1>>"{2}\stdout.log" 2>>"{2}\stderr.log"' -f $binaryPath,$configPath,$DataRoot),
-        'exit $LASTEXITCODE'
+        ('$runnerError = "{0}"' -f $runnerErrorPath),
+        'try {',
+        ('    $token = [IO.File]::ReadAllText("{0}").Trim()' -f $tokenPath),
+        '    if ($token.Length -lt 32 -or $token -match ''\s'') { throw "Invalid WorkBridge token" }',
+        '    $env:WORKBRIDGE_HTTP_TOKEN = $token',
+        ('    & "{0}" --config "{1}" --transport http 1>>"{2}\stdout.log" 2>>"{2}\stderr.log"' -f $binaryPath,$configPath,$DataRoot),
+        '    exit $LASTEXITCODE',
+        '} catch {',
+        '    $_ | Out-String | Set-Content -LiteralPath $runnerError -Encoding UTF8',
+        '    exit 1',
+        '}'
     )
     $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
     [IO.File]::WriteAllText($runnerPath, $runnerText, $utf8NoBom)
@@ -207,7 +214,7 @@ try {
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runnerPath + '"')
     $trigger = New-ScheduledTaskTrigger -AtStartup
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 20 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 20 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     $taskParams = @{
         TaskName = $TaskName
         Action = $action
@@ -231,8 +238,10 @@ try {
 
     if ($null -eq $health -or $health.status -ne "ok") {
         $stderrPath = Join-Path $DataRoot "stderr.log"
+        $runnerErrorPath = Join-Path $DataRoot "runner-error.log"
         $tail = if (Test-Path -LiteralPath $stderrPath) { (Get-Content -LiteralPath $stderrPath -Tail 30) -join [Environment]::NewLine } else { "<no stderr log>" }
-        throw "WorkBridge failed local health qualification. stderr tail: $tail"
+        $runnerTail = if (Test-Path -LiteralPath $runnerErrorPath) { (Get-Content -LiteralPath $runnerErrorPath -Tail 30) -join [Environment]::NewLine } else { "<no runner error log>" }
+        throw "WorkBridge failed local health qualification. stderr tail: $tail runner-error tail: $runnerTail"
     }
 
     $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
