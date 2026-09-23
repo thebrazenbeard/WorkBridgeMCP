@@ -200,8 +200,12 @@ try {
         ('    $token = [IO.File]::ReadAllText("{0}").Trim()' -f $tokenPath),
         '    if ($token.Length -lt 32 -or $token -match ''\s'') { throw "Invalid WorkBridge token" }',
         '    $env:WORKBRIDGE_HTTP_TOKEN = $token',
+        '    $nativeErrorActionPreference = $ErrorActionPreference',
+        '    $ErrorActionPreference = "Continue"',
         ('    & "{0}" --config "{1}" --transport http 1>>"{2}\stdout.log" 2>>"{2}\stderr.log"' -f $binaryPath,$configPath,$DataRoot),
-        '    exit $LASTEXITCODE',
+        '    $nativeExitCode = $LASTEXITCODE',
+        '    $ErrorActionPreference = $nativeErrorActionPreference',
+        '    exit $nativeExitCode',
         '} catch {',
         '    $_ | Out-String | Set-Content -LiteralPath $runnerError -Encoding UTF8',
         '    exit 1',
@@ -209,6 +213,7 @@ try {
     )
     $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
     [IO.File]::WriteAllText($runnerPath, $runnerText, $utf8NoBom)
+    Remove-Item -LiteralPath $runnerErrorPath -Force -ErrorAction SilentlyContinue
     Protect-PrivateDirectory -Path $DataRoot
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runnerPath + '"')
