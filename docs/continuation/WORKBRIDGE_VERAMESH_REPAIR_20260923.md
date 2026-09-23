@@ -21,9 +21,11 @@ Fresh-check refs, checks, and Lappy state before using it.
 
 ## Open acceptance gates
 
-- Commit and push this repair branch; verify the remote exact head and its CI result.
-- Exercise the real WorkBridge binary through the VeraMesh client, then bind both exact heads in the result.
+- Source repair commit `613c3df0e7bd1d43b123d249e3aaca4366852546` was pushed and read back on `fix/workbridge-veramesh-20260923`; draft PR #6 targets PR #5's candidate branch.
+- PR #6 exact-source CI run `35845677264`: Ubuntu tests PASS, Windows tests PASS, Windows binary build PASS.
+- A Windows binary built from the repair source had SHA-256 `66fddfd9368449189cd1d4e327ac9b5282f0a2e67dda1d250bd5bbf36145f0be`. A live local WorkBridge HTTP process served read/stat/list through the VeraMesh client; write was absent in the read-only profile. PASS.
+- VeraMesh's repeatable real-binary integration test and exact-source CI binding are on its separate `fix/veramesh-workbridge-20260923` branch; that branch still requires its own remote readback and CI at this checkpoint.
 - Lappy is offline to the available Remote Desktop Commander connection at the initial check. Fresh-check before any read-only runtime qualification.
 - Installation, service registration, credentials, and ChatGPT end-to-end effect remain separate protected effects.
 
-The GitHub security-agent check on PR #5 at `e89a0b4` failed because its requested review model was unsupported. Its job log reached runner steps; this is neither a source test failure nor an independent security review pass.
+The GitHub security-agent check on PR #6 at `613c3df` failed because its requested review model was unsupported. Its job log reached runner steps; this is neither a source test failure nor an independent security review pass. Fresh-check CI after this documentation update because any head movement creates a new exact subject.
