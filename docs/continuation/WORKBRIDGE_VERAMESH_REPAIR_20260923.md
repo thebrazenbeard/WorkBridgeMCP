@@ -20,13 +20,17 @@ Fresh-check refs, checks, and Lappy state before using it.
 - Windows PowerShell 5.1 and PowerShell 7 listener-guard checks: PASS.
 - Go 1.25.12 `go test ./...`, `go vet ./...`, and `go build ./cmd/workbridge-mcp`: PASS locally on Windows.
 
-## Open acceptance gates
+## Source acceptance and remaining gates
 
-- Source repair commit `613c3df0e7bd1d43b123d249e3aaca4366852546` was pushed and read back on `fix/workbridge-veramesh-20260923`; draft PR #6 targets PR #5's candidate branch.
-- PR #6 exact-source CI run `35845677264`: Ubuntu tests PASS, Windows tests PASS, Windows binary build PASS.
-- A Windows binary built from the repair source had SHA-256 `66fddfd9368449189cd1d4e327ac9b5282f0a2e67dda1d250bd5bbf36145f0be`. A live local WorkBridge HTTP process served read/stat/list through the VeraMesh client; write was absent in the read-only profile. PASS.
-- VeraMesh's repeatable real-binary integration test and exact-source CI binding are on its separate `fix/veramesh-workbridge-20260923` branch; that branch still requires its own remote readback and CI at this checkpoint.
-- Lappy is offline to the available Remote Desktop Commander connection at the initial check. Fresh-check before any read-only runtime qualification.
-- Installation, service registration, credentials, and ChatGPT end-to-end effect remain separate protected effects.
+- Source repair is in draft PR #6 against PR #5's candidate branch. Before this record update, its remote head was `ab5ca2dd263bdb35e9fcecb297bf094e3a43017e` and CI run `35846554913` passed Ubuntu tests, Windows tests, and Windows binary build.
+- The exact-head local binary had SHA-256 `3853be9cb3f0af1ad833e29e1eb022906a0979e3531534147573ae8daccfc62a`. Stdio MCP initialize/tools-list and authenticated HTTP checks passed; unauthorized HTTP health returned 401. The VeraMesh adapter's local real-binary integration suite passed against that binary.
+- VeraMesh draft PR #33 added an exact WorkBridge checkout to its Windows real-HTTP integration job. Its initial CI, reference, and CodeQL runs passed. Refresh its WorkBridge source pin if this WorkBridge branch head moves.
+- The separate GitHub security-agent job failed before review because its requested model was unsupported. This is neither a source test failure nor an independent security review pass.
+- Lappy remained offline at the latest available Remote Desktop Commander check. There is no live Lappy install/runtime/ChatGPT effect readback. Installation, service registration, credentials, and ChatGPT registration remain separate protected effects.
 
-The GitHub security-agent check on PR #6 at `613c3df` failed because its requested review model was unsupported. Its job log reached runner steps; this is neither a source test failure nor an independent security review pass. Fresh-check CI after this documentation update because any head movement creates a new exact subject.
+## Recovery after a rate or context limit
+
+1. Read PR #6 and PR #33 descriptions, then verify both remote heads and their exact-head checks. Do not treat the hashes in this checkpoint as current without readback.
+2. Check that VeraMesh CI pins the current intended WorkBridge source commit. A WorkBridge documentation commit also moves the Git head and requires a corresponding pin update if exact-head binding is promised.
+3. Confirm Lappy connectivity before attempting read-only runtime qualification. Do not infer installation or tool effect from source CI.
+4. Resume only authorized, non-colliding work. Merge, installation, credentials, provider/network changes, and ChatGPT registration require their own exact authority.
