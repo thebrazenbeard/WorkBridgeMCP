@@ -6,6 +6,21 @@ $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count -gt 0) { throw 'Lappy installer has PowerShell parser errors.' }
+$installerText = Get-Content -LiteralPath $installer -Raw
+foreach ($required in @(
+    '$process = Start-Process -FilePath "{0}"',
+    '-RedirectStandardOutput "{2}\stdout.log"',
+    '-RedirectStandardError "{2}\stderr.log"',
+    'exit $process.ExitCode'
+)) {
+    if (-not $installerText.Contains($required)) {
+        throw "Installer runner is missing native-process guard fragment: $required"
+    }
+}
+if ($installerText.Contains('    & "{0}" --config "{1}" --transport http')) {
+    throw 'Installer runner regressed to direct native invocation under ErrorActionPreference=Stop.'
+}
+
 foreach ($name in @('Assert-PortUnoccupied', 'Assert-ListenerOwnedByBinary')) {
     $definition = $ast.Find({
         param($node)
