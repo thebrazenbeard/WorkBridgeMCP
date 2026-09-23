@@ -34,6 +34,22 @@ The template deliberately does **not**:
 
 A release/install workflow must supply those choices explicitly.
 
+## Existing Lappy installer
+
+`scripts/Install-WorkBridgeLappy.ps1` is a separate elevated installation
+packet. Running it builds an exact pinned source commit, registers a persistent
+SYSTEM scheduled task, and starts authenticated loopback HTTP. It configures
+read and write roots from the existing VeraPort `allowed_roots`; process
+execution stays disabled. Merely building or packaging this repository does
+not run that packet.
+
+The installer waits for any prior managed listener to release its port before
+replacing the binary. After startup it verifies that the listener belongs to
+the installed executable, the scheduled task is running, and the existing
+VeraPort configuration and identity files did not change. A foreign listener
+or ambiguous prior task fails installation rather than being reported as a
+healthy WorkBridge runtime.
+
 ## Security boundary
 
 For workstation use, prefer:

@@ -44,6 +44,38 @@ function Protect-PrivateDirectory {
     if ($LASTEXITCODE -ne 0) { throw "Failed to protect private directory: $Path" }
 }
 
+function Assert-PortUnoccupied {
+    param([int]$LocalPort, [int]$TimeoutSeconds = 20)
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $LocalPort -ErrorAction SilentlyContinue)
+        if ($listeners.Count -eq 0) { return }
+        Start-Sleep -Milliseconds 300
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Port $LocalPort remained occupied after stopping the prior WorkBridge task."
+}
+
+function Assert-ListenerOwnedByBinary {
+    param([int]$LocalPort, [string]$BinaryPath)
+    $expected = [IO.Path]::GetFullPath($BinaryPath)
+    $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $LocalPort -ErrorAction Stop)
+    if ($listeners.Count -eq 0) { throw "No WorkBridge listener found on port $LocalPort." }
+    foreach ($listener in $listeners) {
+        if ($listener.LocalAddress -notin @("127.0.0.1","::1")) {
+            throw "WorkBridge has a non-loopback listener."
+        }
+        $ownerPid = [int]$listener.OwningProcess
+        $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction Stop
+        if ($null -eq $owner -or [string]::IsNullOrWhiteSpace([string]$owner.ExecutablePath) -or
+            -not [string]::Equals([IO.Path]::GetFullPath([string]$owner.ExecutablePath), $expected, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Port $LocalPort is owned by a process other than the installed WorkBridge binary."
+        }
+    }
+    if (@($listeners | Where-Object { $_.LocalAddress -eq "127.0.0.1" }).Count -lt 1) {
+        throw "Expected WorkBridge loopback listener 127.0.0.1:$LocalPort is absent."
+    }
+}
+
 function Get-PortableGo {
     param([string]$Version, [string]$TempRoot)
     $fileName = "$Version.windows-amd64.zip"
@@ -86,6 +118,7 @@ Assert-Administrator
 $veraPortConfigPath = "C:\ProgramData\VeraMesh\veraport.json"
 if (-not (Test-Path -LiteralPath $veraPortConfigPath -PathType Leaf)) { throw "Existing VeraPort config not found" }
 $veraPortConfig = Get-Content -LiteralPath $veraPortConfigPath -Raw | ConvertFrom-Json
+$veraPortConfigBefore = (Get-FileHash -LiteralPath $veraPortConfigPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($veraPortConfig.allow_process_exec -eq $true) {
     throw "Existing VeraPort unexpectedly has process execution enabled; refusing to change authority assumptions."
 }
@@ -139,7 +172,7 @@ try {
 
     if ($null -ne $existingTask) {
         Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        Start-Sleep -Milliseconds 500
+        Assert-PortUnoccupied -LocalPort $Port
     }
 
     New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
@@ -244,17 +277,18 @@ try {
         throw "WorkBridge failed local health qualification. stderr tail: $tail runner-error tail: $runnerTail"
     }
 
-    $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
-    $badListeners = @($listeners | Where-Object { $_.LocalAddress -notin @("127.0.0.1","::1") })
-    if ($badListeners.Count -gt 0) { throw "WorkBridge has a non-loopback listener." }
-    if (@($listeners | Where-Object { $_.LocalAddress -eq "127.0.0.1" }).Count -lt 1) {
-        throw "Expected WorkBridge loopback listener 127.0.0.1:$Port is absent."
-    }
+    Assert-ListenerOwnedByBinary -LocalPort $Port -BinaryPath $binaryPath
 
     $installedTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+    if ([string]$installedTask.State -ne "Running") {
+        throw "WorkBridge scheduled task is not running after authenticated health qualification."
+    }
     $taskInfo = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction Stop
     $identityAfter = Get-FileSnapshot -Roots $veraPortIdentityRoots
     Assert-SnapshotEqual -Before $identityBefore -After $identityAfter -Label "VeraPort identity/controller material"
+    if ((Get-FileHash -LiteralPath $veraPortConfigPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $veraPortConfigBefore) {
+        throw "VeraPort config changed during WorkBridge installation."
+    }
 
     $veraPortServiceAfter = Get-CimInstance Win32_Service -Filter "Name='VeraPortAgent'" -ErrorAction Stop
     if ($veraPortServiceAfter.State -ne $veraPortServiceBefore.State -or

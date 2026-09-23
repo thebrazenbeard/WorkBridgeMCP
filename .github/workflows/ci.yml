@@ -53,6 +53,10 @@ jobs:
         shell: pwsh
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ".\scripts\Install-WorkBridgeLappy.ps1"),[ref]$tokens,[ref]$errors)|Out-Null; if($errors.Count -gt 0){$errors|Format-List|Out-String|Write-Error; exit 1}'
+      - name: Verify Lappy listener ownership guards under Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-WorkBridgeLappyInstallerGuards.ps1
 
   windows-binary:
     runs-on: ubuntu-latest

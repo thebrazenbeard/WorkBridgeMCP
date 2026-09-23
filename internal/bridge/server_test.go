@@ -72,3 +72,36 @@ func TestMCPServerListsAndCallsReadTool(t *testing.T) {
 	clientSession.Close()
 	serverSession.Wait()
 }
+
+func TestMCPServerOmitsReadToolsWithoutReadRoots(t *testing.T) {
+	cfg, err := config.Parse([]byte(`{"schema":"WORKBRIDGE_CONFIG_V1","read_roots":[],"write_roots":[],"process":{"enabled":false}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Close()
+	ctx := context.Background()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := rt.Server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "workbridge-test", Version: "0"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientSession.Close()
+	tools, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 1 || tools.Tools[0].Name != "workbridge_health" {
+		t.Fatalf("rootless profile exposed unavailable tools: %#v", tools.Tools)
+	}
+	clientSession.Close()
+	serverSession.Wait()
+}
