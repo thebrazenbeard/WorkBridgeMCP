@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SourceCommit = "a4bf4600c3bc75ef65ed91223c2d3c11073c9959",
+    [string]$SourceCommit = "613c3df0e7bd1d43b123d249e3aaca4366852546",
     [string]$GoVersion = "go1.25.12",
     [string]$InstallRoot = "C:\Program Files\WorkBridgeMCP",
     [string]$DataRoot = "C:\ProgramData\WorkBridgeMCP",

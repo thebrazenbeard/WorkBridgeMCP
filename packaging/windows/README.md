@@ -43,6 +43,10 @@ read and write roots from the existing VeraPort `allowed_roots`; process
 execution stays disabled. Merely building or packaging this repository does
 not run that packet.
 
+The default source pin is the code-bearing repair commit
+`613c3df0e7bd1d43b123d249e3aaca4366852546`. Check the source and local
+policy before a later operator invokes the installer.
+
 The installer waits for any prior managed listener to release its port before
 replacing the binary. After startup it verifies that the listener belongs to
 the installed executable, the scheduled task is running, and the existing

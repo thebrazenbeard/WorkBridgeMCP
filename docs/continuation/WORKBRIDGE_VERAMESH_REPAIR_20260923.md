@@ -15,6 +15,7 @@ Fresh-check refs, checks, and Lappy state before using it.
 
 - A profile without read roots no longer advertises unusable read tools; an MCP tools/list regression checks the health-only profile.
 - The Lappy installer waits for a previous listener to exit and verifies that the post-start listener belongs to the installed binary and the scheduled task is running.
+- Its default source pin is now the code-bearing repair commit `613c3df0e7bd1d43b123d249e3aaca4366852546`, rather than an older pre-repair commit.
 - It verifies the existing VeraPort config hash alongside the identity/controller file snapshot.
 - Windows PowerShell 5.1 and PowerShell 7 listener-guard checks: PASS.
 - Go 1.25.12 `go test ./...`, `go vet ./...`, and `go build ./cmd/workbridge-mcp`: PASS locally on Windows.
