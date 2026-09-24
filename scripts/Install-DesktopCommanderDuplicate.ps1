@@ -65,7 +65,12 @@ try {
             throw "built DesktopCommander entrypoint missing: $entrypoint"
         }
 
-        $nodeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $NodeExe).Hash.ToLowerInvariant()
+        $runtimeDir = Join-Path $staging "workbridge-runtime"
+        New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+        $runtimeNode = Join-Path $runtimeDir "node.exe"
+        Copy-Item -LiteralPath $NodeExe -Destination $runtimeNode -Force
+
+        $nodeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $runtimeNode).Hash.ToLowerInvariant()
         $entryHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $entrypoint).Hash.ToLowerInvariant()
 
         $manifest = [ordered]@{
@@ -73,7 +78,7 @@ try {
             upstream_repository = $UpstreamRepository
             upstream_commit = $UpstreamCommit
             upstream_version = $ExpectedVersion
-            node_executable = $NodeExe
+            node_executable_relative = "workbridge-runtime\node.exe"
             node_sha256 = $nodeHash
             entrypoint_relative = "dist\index.js"
             entrypoint_sha256 = $entryHash
@@ -102,7 +107,7 @@ try {
         status = "installed"
         install_root = $InstallRoot
         upstream_commit = $result.upstream_commit
-        node_executable = $result.node_executable
+        node_executable = (Join-Path $InstallRoot $result.node_executable_relative)
         entrypoint = (Join-Path $InstallRoot $result.entrypoint_relative)
         unrestricted_command_string_shell = $result.unrestricted_command_string_shell
     } | ConvertTo-Json -Depth 4
