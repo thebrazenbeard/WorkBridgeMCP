@@ -34,3 +34,17 @@ Fresh-check refs, checks, and Lappy state before using it.
 2. Check that VeraMesh CI pins the current intended WorkBridge source commit. A WorkBridge documentation commit also moves the Git head and requires a corresponding pin update if exact-head binding is promised.
 3. Confirm Lappy connectivity before attempting read-only runtime qualification. Do not infer installation or tool effect from source CI.
 4. Resume only authorized, non-colliding work. Merge, installation, credentials, provider/network changes, and ChatGPT registration require their own exact authority.
+
+
+## Current-base restack
+
+The original Draft PR #6 became non-mergeable after its PR #5 base advanced. Its source delta was therefore restacked without rewriting #6.
+
+- current PR #5 head used as restack base: `8a0ba65b7991cedee03827be067f6dbfd1e63dee`;
+- successor branch: `fix/workbridge-veramesh-restack-v1-20260923`;
+- inherited #6 delta remains seven paths;
+- the PR #5 build-cache hardening is preserved in `Install-WorkBridgeLappy.ps1`;
+- #6 listener ownership, prior-port release, config-preservation, rootless tool-registration, and PowerShell guard behavior are composed on top;
+- the installer and packaging documentation now consistently pin the code-bearing WorkBridge source at `d9e8881ca6ffa17ea5b98a6af8c0ef2b2d171f15`.
+
+Qualification for the successor exact head must be read from its own CI. Prior #5/#6 runs remain predecessor evidence only.
