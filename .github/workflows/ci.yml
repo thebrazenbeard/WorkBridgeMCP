@@ -91,9 +91,8 @@ jobs:
       - name: Build exact Desktop Commander source
         working-directory: upstream/DesktopCommanderMCP
         run: npm run build
-      - name: Validate upstream tool registration
-        working-directory: upstream/DesktopCommanderMCP
-        run: npm run validate:tools
+      - name: Execute exact upstream Desktop Commander MCP surface
+        run: node scripts/Test-DesktopCommanderDuplicate.mjs
 
   windows-binary:
     runs-on: ubuntu-latest
