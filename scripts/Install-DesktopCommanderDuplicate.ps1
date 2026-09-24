@@ -55,6 +55,11 @@ try {
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
+        & $NodeExe "dist\npm-scripts\verify-ripgrep.js"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Desktop Commander ripgrep verification failed"
+        }
+
         if ($RunTests) {
             & $npm test
             if ($LASTEXITCODE -ne 0) { throw "DesktopCommander upstream test suite failed" }
