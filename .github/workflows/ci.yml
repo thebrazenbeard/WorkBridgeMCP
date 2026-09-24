@@ -91,6 +91,9 @@ jobs:
       - name: Build exact Desktop Commander source
         working-directory: upstream/DesktopCommanderMCP
         run: npm run build
+      - name: Verify upstream ripgrep runtime without install telemetry
+        working-directory: upstream/DesktopCommanderMCP
+        run: node dist/npm-scripts/verify-ripgrep.js
       - name: Execute exact upstream Desktop Commander MCP surface
         run: node scripts/Test-DesktopCommanderDuplicate.mjs
 
