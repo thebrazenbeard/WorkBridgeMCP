@@ -1,0 +1,180 @@
+{
+  "schema": "WORKBRIDGE_RDC_PARITY_ACCEPTANCE_V1",
+  "reference_source": {
+    "repository": "wonderwhy-er/DesktopCommanderMCP",
+    "head": "550a0b3e31da18b7cf25e87ed840e3d953b6da42"
+  },
+  "workbridge_base": {
+    "repository": "thebrazenbeard/WorkBridgeMCP",
+    "head": "6f578307d71b13ab93a8ab9e48bdfc547437a0e5"
+  },
+  "p0": [
+    {
+      "id": "P0-01",
+      "name": "disabled_process_rejects_session_start",
+      "expect": "process.enabled=false rejects persistent session start without spawning a child"
+    },
+    {
+      "id": "P0-02",
+      "name": "grant_hash_rechecked_at_each_start",
+      "expect": "changing a granted executable after configuration causes start failure"
+    },
+    {
+      "id": "P0-03",
+      "name": "working_root_escape_rejected",
+      "expect": "session start with cwd outside configured roots is rejected"
+    },
+    {
+      "id": "P0-04",
+      "name": "opaque_session_handle",
+      "expect": "successful start returns opaque session_id distinct from PID and all session mutations require it"
+    },
+    {
+      "id": "P0-05",
+      "name": "interactive_round_trip",
+      "expect": "start interactive approved process, wait for prompt/output, write stdin, read resulting output"
+    },
+    {
+      "id": "P0-06",
+      "name": "new_output_cursor",
+      "expect": "default read returns only output not previously consumed by that session cursor"
+    },
+    {
+      "id": "P0-07",
+      "name": "absolute_output_pagination",
+      "expect": "positive offset+length returns deterministic retained line range"
+    },
+    {
+      "id": "P0-08",
+      "name": "tail_output_pagination",
+      "expect": "negative offset returns retained tail lines"
+    },
+    {
+      "id": "P0-09",
+      "name": "completed_output_retained",
+      "expect": "after normal exit, retained output and exit code remain readable"
+    },
+    {
+      "id": "P0-10",
+      "name": "output_buffer_bounded",
+      "expect": "unbounded child output cannot grow server memory beyond declared per-session cap; oldest retained output is evicted with counters"
+    },
+    {
+      "id": "P0-11",
+      "name": "long_line_bounded",
+      "expect": "single never-newline output stream cannot defeat the output cap"
+    },
+    {
+      "id": "P0-12",
+      "name": "session_count_bounded",
+      "expect": "starting beyond configured concurrent-session maximum fails closed"
+    },
+    {
+      "id": "P0-13",
+      "name": "stdin_size_bounded",
+      "expect": "oversize session input is rejected before write"
+    },
+    {
+      "id": "P0-14",
+      "name": "write_to_completed_session_rejected",
+      "expect": "stdin write to completed/unknown session fails explicitly"
+    },
+    {
+      "id": "P0-15",
+      "name": "terminate_owned_session",
+      "expect": "terminate by session_id stops owned child and produces TERMINATED/completed evidence"
+    },
+    {
+      "id": "P0-16",
+      "name": "server_shutdown_cleans_owned_children",
+      "expect": "runtime shutdown cannot leave owned children alive or sessions advertised running"
+    },
+    {
+      "id": "P0-17",
+      "name": "spawn_failure_does_not_crash_server",
+      "expect": "missing/unstartable granted executable returns tool error; MCP server remains healthy"
+    },
+    {
+      "id": "P0-18",
+      "name": "completed_session_retention_bounded",
+      "expect": "retained completed sessions are evicted by declared count/time policy"
+    },
+    {
+      "id": "P0-19",
+      "name": "os_process_list_observational",
+      "expect": "process_list returns structured PID/name/resource fields without requiring process mutation authority"
+    },
+    {
+      "id": "P0-20",
+      "name": "external_kill_requires_separate_gate",
+      "expect": "process.enabled=true alone is insufficient to kill an arbitrary external PID"
+    },
+    {
+      "id": "P0-21",
+      "name": "external_kill_does_not_accept_session_handle_confusion",
+      "expect": "session_id cannot be coerced into external PID authority and PID cannot substitute for session_id"
+    },
+    {
+      "id": "P0-22",
+      "name": "reduced_environment_preserved",
+      "expect": "persistent sessions inherit only the declared reduced/allowlisted environment policy"
+    },
+    {
+      "id": "P0-23",
+      "name": "windows_interactive_process",
+      "expect": "Windows approved PowerShell/Python-style interactive child supports read/write/read without visible console window"
+    },
+    {
+      "id": "P0-24",
+      "name": "veramesh_executor_readiness",
+      "expect": "VeraMesh does not advertise route ready if WorkBridge executor readiness probe fails"
+    },
+    {
+      "id": "P0-25",
+      "name": "transport_recovery_without_duplicate_process",
+      "expect": "VeraMesh reconnect/retry does not duplicate an existing WorkBridge-owned session"
+    },
+    {
+      "id": "P0-26",
+      "name": "end_to_end_build_smoke",
+      "expect": "through exact VeraMesh route: inspect repo, start approved build/test executable, read output, continue interaction if requested, observe completion, read artifact/file result"
+    }
+  ],
+  "p1": [
+    {
+      "id": "P1-01",
+      "name": "multifile_read_partial_failures",
+      "expect": "batch read preserves per-path errors without aborting successful reads"
+    },
+    {
+      "id": "P1-02",
+      "name": "move_root_confinement",
+      "expect": "source and destination must both remain within authorized roots"
+    },
+    {
+      "id": "P1-03",
+      "name": "exact_replace",
+      "expect": "bounded exact replacement fails on zero or ambiguous matches unless explicitly permitted"
+    },
+    {
+      "id": "P1-04",
+      "name": "streaming_filename_search",
+      "expect": "large search can be paginated/stopped without retaining unbounded results"
+    },
+    {
+      "id": "P1-05",
+      "name": "streaming_content_search",
+      "expect": "content search is root-confined, bounded and cancellable"
+    },
+    {
+      "id": "P1-06",
+      "name": "tool_history_redaction",
+      "expect": "history never returns bearer token or configured secret values"
+    },
+    {
+      "id": "P1-07",
+      "name": "tool_history_bounded",
+      "expect": "history has bounded entry count and per-entry payload"
+    }
+  ]
+}
