@@ -44,7 +44,7 @@ execution stays disabled. Merely building or packaging this repository does
 not run that packet.
 
 The default source pin is the code-bearing repair commit
-`613c3df0e7bd1d43b123d249e3aaca4366852546`. Check the source and local
+`d9e8881ca6ffa17ea5b98a6af8c0ef2b2d171f15`. Check the source and local
 policy before a later operator invokes the installer.
 
 The installer waits for any prior managed listener to release its port before
