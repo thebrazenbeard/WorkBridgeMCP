@@ -52,6 +52,11 @@ try {
         & $npm ci --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
+        & $npm rebuild "@vscode/ripgrep"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Desktop Commander ripgrep dependency rebuild failed"
+        }
+
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
