@@ -82,7 +82,15 @@ try {
     }
 
     Push-Location $staging
+    $originalPath = $env:PATH
     try {
+        $nodeDir = Split-Path -Parent $NodeExe
+        $pathParts = @($nodeDir)
+        if (-not [string]::IsNullOrWhiteSpace($originalPath)) {
+            $pathParts += $originalPath
+        }
+        $env:PATH = ($pathParts -join [IO.Path]::PathSeparator)
+
         $package = Get-Content -Raw -Encoding UTF8 "package.json" | ConvertFrom-Json
         if ($package.name -ne "@wonderwhy-er/desktop-commander") {
             throw "unexpected package name: $($package.name)"
@@ -140,6 +148,7 @@ try {
         $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 "workbridge-desktop-commander.manifest.json"
     }
     finally {
+        $env:PATH = $originalPath
         Pop-Location
     }
 
