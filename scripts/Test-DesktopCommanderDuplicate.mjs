@@ -2,7 +2,9 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 
-const root = path.resolve("upstream", "DesktopCommanderMCP");
+const root = process.env.DESKTOP_COMMANDER_ROOT
+  ? path.resolve(process.env.DESKTOP_COMMANDER_ROOT)
+  : path.resolve("upstream", "DesktopCommanderMCP");
 const entrypoint = path.join(root, "dist", "index.js");
 const child = spawn(process.execPath, [entrypoint, "--no-onboarding"], {
   cwd: root,
@@ -117,7 +119,8 @@ try {
   }
 
   const marker = "WORKBRIDGE_DUPLICATE_OK";
-  const command = "node -e \"process.stdout.write('" + marker + "')\"";
+  const runtime = '"' + process.execPath.replaceAll('"', '\\"') + '"';
+  const command = runtime + " -e \"process.stdout.write('" + marker + "')\"";
   const started = await request("tools/call", {
     name: "start_process",
     arguments: { command, timeout_ms: 5000 },
