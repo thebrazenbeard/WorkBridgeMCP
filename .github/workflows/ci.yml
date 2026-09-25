@@ -121,7 +121,9 @@ jobs:
           # Simulate the user's clean workstation: Node is available only
           # because the bootstrap provides it, and Git is deliberately absent.
           $powerShellDir = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0"
-          $env:PATH = "$nodeDir;$powerShellDir;$env:SystemRoot\System32;$env:SystemRoot"
+          # Deliberately exclude the portable Node directory from PATH.
+          # The installer must expose Node to npm child scripts itself.
+          $env:PATH = "$powerShellDir;$env:SystemRoot\System32;$env:SystemRoot"
           if (Get-Command git -ErrorAction SilentlyContinue) {
             throw "Git unexpectedly remained discoverable in gitless qualification"
           }
