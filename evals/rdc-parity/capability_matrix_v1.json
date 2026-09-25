@@ -1,0 +1,241 @@
+{
+  "schema": "WORKBRIDGE_RDC_PARITY_MATRIX_V1",
+  "workbridge_base": {
+    "repository": "thebrazenbeard/WorkBridgeMCP",
+    "pr": 8,
+    "head": "6f578307d71b13ab93a8ab9e48bdfc547437a0e5"
+  },
+  "reference": {
+    "repository": "wonderwhy-er/DesktopCommanderMCP",
+    "head": "550a0b3e31da18b7cf25e87ed840e3d953b6da42",
+    "license": "MIT"
+  },
+  "claim_ceiling": "RDC_CLASS_BUILD_WORKSTATION_PARITY_WITHIN_DECLARED_WORKBRIDGE_VERAMESH_SURFACE",
+  "capabilities": [
+    {
+      "id": "device.identity_route",
+      "rdc": [
+        "list_devices",
+        "ping"
+      ],
+      "owner": "VeraMesh",
+      "status": "EXISTING_ANALOG",
+      "required": "authenticated route identity + latency/health"
+    },
+    {
+      "id": "fs.list",
+      "rdc": [
+        "list_directory"
+      ],
+      "owner": "WorkBridge",
+      "status": "EXISTING",
+      "workbridge": [
+        "workspace_list"
+      ]
+    },
+    {
+      "id": "fs.stat",
+      "rdc": [
+        "get_file_info"
+      ],
+      "owner": "WorkBridge",
+      "status": "PARTIAL",
+      "workbridge": [
+        "workspace_stat"
+      ],
+      "gap": "richer text metadata optional"
+    },
+    {
+      "id": "fs.read",
+      "rdc": [
+        "read_file"
+      ],
+      "owner": "WorkBridge",
+      "status": "EXISTING",
+      "workbridge": [
+        "workspace_read_text"
+      ],
+      "gap": "binary/multifile outside P0"
+    },
+    {
+      "id": "fs.read_multi",
+      "rdc": [
+        "read_multiple_files"
+      ],
+      "owner": "WorkBridge",
+      "status": "P1_MISSING"
+    },
+    {
+      "id": "fs.write",
+      "rdc": [
+        "write_file"
+      ],
+      "owner": "WorkBridge",
+      "status": "EXISTING",
+      "workbridge": [
+        "workspace_write_text"
+      ]
+    },
+    {
+      "id": "fs.mkdir",
+      "rdc": [
+        "create_directory"
+      ],
+      "owner": "WorkBridge",
+      "status": "EXISTING",
+      "workbridge": [
+        "workspace_mkdir"
+      ]
+    },
+    {
+      "id": "fs.move",
+      "rdc": [
+        "move_file"
+      ],
+      "owner": "WorkBridge",
+      "status": "P1_MISSING"
+    },
+    {
+      "id": "fs.replace",
+      "rdc": [
+        "edit_block"
+      ],
+      "owner": "WorkBridge",
+      "status": "P1_MISSING",
+      "gap": "bounded exact-text replacement only"
+    },
+    {
+      "id": "search.streaming",
+      "rdc": [
+        "start_search",
+        "get_more_search_results",
+        "stop_search",
+        "list_searches"
+      ],
+      "owner": "WorkBridge",
+      "status": "P1_MISSING"
+    },
+    {
+      "id": "process.oneshot",
+      "rdc": [
+        "start_process"
+      ],
+      "owner": "WorkBridge",
+      "status": "PARTIAL",
+      "workbridge": [
+        "process_run"
+      ],
+      "gap": "current operation is bounded one-shot, not persistent"
+    },
+    {
+      "id": "process.session_start",
+      "rdc": [
+        "start_process"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.session_read",
+      "rdc": [
+        "read_process_output"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.session_write",
+      "rdc": [
+        "interact_with_process"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.session_terminate",
+      "rdc": [
+        "force_terminate"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.session_list",
+      "rdc": [
+        "list_sessions"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.os_list",
+      "rdc": [
+        "list_processes"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING"
+    },
+    {
+      "id": "process.os_kill",
+      "rdc": [
+        "kill_process"
+      ],
+      "owner": "WorkBridge",
+      "status": "P0_MISSING",
+      "gap": "must be separately authorized from session execution"
+    },
+    {
+      "id": "history.local",
+      "rdc": [
+        "get_recent_tool_calls"
+      ],
+      "owner": "WorkBridge",
+      "status": "P1_MISSING"
+    },
+    {
+      "id": "device.shutdown",
+      "rdc": [
+        "shutdown"
+      ],
+      "owner": "VeraMesh/WorkBridge",
+      "status": "DEFER",
+      "gap": "not required for build parity"
+    },
+    {
+      "id": "config.mutation",
+      "rdc": [
+        "get_config",
+        "set_config_value"
+      ],
+      "owner": "WorkBridge",
+      "status": "REJECT_MUTATING_TOOL",
+      "gap": "security config remains out-of-band"
+    },
+    {
+      "id": "usage.accounting",
+      "rdc": [
+        "who_am_i",
+        "get_usage_stats"
+      ],
+      "owner": "hosted service",
+      "status": "REJECT_NOT_RELEVANT"
+    },
+    {
+      "id": "document.convenience",
+      "rdc": [
+        "write_pdf"
+      ],
+      "owner": "artifact layer",
+      "status": "DEFER_NOT_RDC_CORE"
+    },
+    {
+      "id": "onboarding.feedback",
+      "rdc": [
+        "get_prompts",
+        "give_feedback_to_desktop_commander"
+      ],
+      "owner": "hosted service",
+      "status": "REJECT_NOT_RELEVANT"
+    }
+  ]
+}
