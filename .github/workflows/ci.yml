@@ -126,7 +126,8 @@ jobs:
           }
 
           $installRoot = Join-Path $env:RUNNER_TEMP "DesktopCommanderMCP-installed"
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-DesktopCommanderDuplicate.ps1 -InstallRoot $installRoot -NodeExe $node -NpmExe $npm
+          $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+          & $powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-DesktopCommanderDuplicate.ps1 -InstallRoot $installRoot -NodeExe $node -NpmExe $npm
           if ($LASTEXITCODE -ne 0) {
             throw "gitless installer failed"
           }
