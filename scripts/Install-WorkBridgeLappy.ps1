@@ -245,7 +245,7 @@ try {
     $config = [ordered]@{
         schema = "WORKBRIDGE_CONFIG_V1"
         read_roots = @($roots)
-        write_roots = @($roots)
+        write_roots = @()
         limits = [ordered]@{
             max_read_bytes = 1048576
             max_write_bytes = 1048576
@@ -325,6 +325,20 @@ try {
         throw "WorkBridge failed local health qualification. stderr tail: $tail runner-error tail: $runnerTail"
     }
 
+    $unauthorized = $false
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/mcp/healthz" -TimeoutSec 2 | Out-Null
+    } catch {
+        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 401) {
+            $unauthorized = $true
+        } else {
+            throw
+        }
+    }
+    if (-not $unauthorized) {
+        throw "WorkBridge health unexpectedly succeeded without bearer authentication."
+    }
+
     Assert-ListenerOwnedByBinary -LocalPort $Port -BinaryPath $binaryPath
 
     $installedTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
@@ -374,14 +388,15 @@ try {
             listen = "127.0.0.1:$Port"
             path = "/mcp"
             authenticated_health = "PASS"
+            unauthenticated_health = "DENIED_401"
             token_file = $tokenPath
             token_sha256 = $tokenHash
         }
         authority = [ordered]@{
             read_roots = @($roots)
-            write_roots = @($roots)
+            write_roots = @()
             process_enabled = $false
-            authority_source = "existing VeraPort allowed_roots; no broader filesystem roots"
+            authority_source = "existing VeraPort allowed_roots establish read-only location admission only; write authority disabled for bootstrap"
         }
         preservation = [ordered]@{
             veraport_identity_hashes_unchanged = $true
