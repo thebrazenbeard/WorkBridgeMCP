@@ -100,6 +100,56 @@ jobs:
       - name: Execute exact upstream Desktop Commander MCP surface
         run: node scripts/Test-DesktopCommanderDuplicate.mjs
 
+
+  windows-gitless-desktop-commander:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+      - name: Install and qualify without Git on PATH
+        shell: powershell
+        run: |
+          $node = (Get-Command node -ErrorAction Stop).Source
+          $nodeDir = Split-Path -Parent $node
+          $npm = Join-Path $nodeDir "npm.cmd"
+          if (-not (Test-Path -LiteralPath $npm -PathType Leaf)) {
+            throw "npm.cmd missing next to setup-node runtime"
+          }
+
+          # Simulate the user's clean workstation: Node is available only
+          # because the bootstrap provides it, and Git is deliberately absent.
+          $powerShellDir = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0"
+          # Deliberately exclude the portable Node directory from PATH.
+          # The installer must expose Node to npm child scripts itself.
+          $env:PATH = "$powerShellDir;$env:SystemRoot\System32;$env:SystemRoot"
+          if (Get-Command git -ErrorAction SilentlyContinue) {
+            throw "Git unexpectedly remained discoverable in gitless qualification"
+          }
+
+          $installRoot = Join-Path $env:RUNNER_TEMP "DesktopCommanderMCP-installed"
+          $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+          & $powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-DesktopCommanderDuplicate.ps1 -InstallRoot $installRoot -NodeExe $node -NpmExe $npm
+          if ($LASTEXITCODE -ne 0) {
+            throw "gitless installer failed"
+          }
+
+          $manifest = Get-Content -Raw -Encoding UTF8 (Join-Path $installRoot "workbridge-desktop-commander.manifest.json") | ConvertFrom-Json
+          if ($manifest.upstream_commit -ne "550a0b3e31da18b7cf25e87ed840e3d953b6da42") {
+            throw "installed upstream pin mismatch"
+          }
+          if ($manifest.unrestricted_command_string_shell -ne $true) {
+            throw "installed duplicate lost unrestricted command-string declaration"
+          }
+
+          $env:DESKTOP_COMMANDER_ROOT = $installRoot
+          $packagedNode = Join-Path $installRoot "workbridge-runtime\node.exe"
+          & $packagedNode .\scripts\Test-DesktopCommanderDuplicate.mjs
+          if ($LASTEXITCODE -ne 0) {
+            throw "installed Desktop Commander acceptance probe failed"
+          }
+
   windows-binary:
     runs-on: ubuntu-latest
     steps:
