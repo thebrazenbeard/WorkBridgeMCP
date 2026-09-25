@@ -56,4 +56,28 @@ if ($installerText.Contains('& "{0}" --config "{1}" --transport http')) {
     throw 'Installed runner still directly invokes WorkBridge through the PowerShell native pipeline.'
 }
 
-Write-Host 'Lappy installer listener ownership guards: PASS'
+if (-not $installerText.Contains('read_roots = @($roots)')) {
+    throw 'Lappy installer no longer preserves VeraPort roots as WorkBridge read roots.'
+}
+if ($installerText.Contains('write_roots = @($roots)')) {
+    throw 'Lappy installer still promotes allowed roots into write authority.'
+}
+$emptyWriteRootAssignments = [regex]::Matches(
+    $installerText,
+    '(?m)^\s*write_roots\s*=\s*@\(\)\s*
+
+).Count
+if ($emptyWriteRootAssignments -lt 2) {
+    throw 'Lappy installer must keep both installed config and qualification receipt write_roots empty.'
+}
+if (-not $installerText.Contains('process_enabled = $false')) {
+    throw 'Lappy qualification receipt does not prove process execution remains disabled.'
+}
+if (-not $installerText.Contains('unauthenticated_health = "DENIED_401"')) {
+    throw 'Lappy qualification receipt does not record unauthenticated health denial.'
+}
+if (-not $installerText.Contains('existing VeraPort allowed_roots establish read-only location admission only')) {
+    throw 'Lappy qualification receipt does not bind roots to read-only location admission.'
+}
+
+Write-Host 'Lappy installer listener and least-authority guards: PASS'
