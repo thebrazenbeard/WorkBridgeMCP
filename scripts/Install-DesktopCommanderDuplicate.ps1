@@ -1,6 +1,7 @@
 param(
     [string]$InstallRoot = "C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP",
     [string]$NodeExe = "",
+    [string]$NpmExe = "",
     [switch]$RunTests
 )
 
@@ -10,37 +11,78 @@ Set-StrictMode -Version Latest
 $UpstreamRepository = "https://github.com/wonderwhy-er/DesktopCommanderMCP.git"
 $UpstreamCommit = "550a0b3e31da18b7cf25e87ed840e3d953b6da42"
 $ExpectedVersion = "0.2.51"
+$UpstreamArchive = "https://github.com/wonderwhy-er/DesktopCommanderMCP/archive/$UpstreamCommit.zip"
 
 function Require-Command([string]$Name) {
     $cmd = Get-Command $Name -ErrorAction Stop
     return $cmd.Source
 }
 
-$git = Require-Command "git"
-$npm = Require-Command "npm"
+$gitCommand = Get-Command "git" -ErrorAction SilentlyContinue
+$git = if ($gitCommand) { $gitCommand.Source } else { $null }
+
 if ([string]::IsNullOrWhiteSpace($NodeExe)) {
     $NodeExe = Require-Command "node"
 }
 $NodeExe = (Resolve-Path $NodeExe).Path
 
+if ([string]::IsNullOrWhiteSpace($NpmExe)) {
+    $npmCommand = Get-Command "npm" -ErrorAction SilentlyContinue
+    if ($npmCommand) {
+        $NpmExe = $npmCommand.Source
+    }
+    else {
+        $nodeAdjacentNpm = Join-Path (Split-Path -Parent $NodeExe) "npm.cmd"
+        if (Test-Path -LiteralPath $nodeAdjacentNpm -PathType Leaf) {
+            $NpmExe = $nodeAdjacentNpm
+        }
+        else {
+            throw "npm was not found on PATH or next to NodeExe."
+        }
+    }
+}
+$NpmExe = (Resolve-Path $NpmExe).Path
+
 $parent = Split-Path -Parent $InstallRoot
 New-Item -ItemType Directory -Force -Path $parent | Out-Null
 $staging = Join-Path $parent ("DesktopCommanderMCP.staging." + [Guid]::NewGuid().ToString("N"))
 $backup = $null
+$archiveStage = $null
 
 try {
-    & $git clone --no-tags $UpstreamRepository $staging
-    if ($LASTEXITCODE -ne 0) { throw "git clone failed" }
+    if ($git) {
+        & $git clone --no-tags $UpstreamRepository $staging
+        if ($LASTEXITCODE -ne 0) { throw "git clone failed" }
+
+        Push-Location $staging
+        try {
+            & $git checkout --detach $UpstreamCommit
+            if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
+            $head = (& $git rev-parse HEAD).Trim()
+            if ($head -ne $UpstreamCommit) {
+                throw "source head mismatch: expected $UpstreamCommit got $head"
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    else {
+        $archiveStage = Join-Path $env:TEMP ("DesktopCommanderMCP.archive." + [Guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Force -Path $archiveStage | Out-Null
+        $archive = Join-Path $archiveStage "source.zip"
+        Invoke-WebRequest -UseBasicParsing -Uri $UpstreamArchive -OutFile $archive
+        $expanded = Join-Path $archiveStage "expanded"
+        Expand-Archive -LiteralPath $archive -DestinationPath $expanded -Force
+        $dirs = @(Get-ChildItem -LiteralPath $expanded -Directory)
+        if ($dirs.Count -ne 1) {
+            throw "unexpected DesktopCommander archive layout"
+        }
+        Move-Item -LiteralPath $dirs[0].FullName -Destination $staging
+    }
 
     Push-Location $staging
     try {
-        & $git checkout --detach $UpstreamCommit
-        if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
-        $head = (& $git rev-parse HEAD).Trim()
-        if ($head -ne $UpstreamCommit) {
-            throw "source head mismatch: expected $UpstreamCommit got $head"
-        }
-
         $package = Get-Content -Raw -Encoding UTF8 "package.json" | ConvertFrom-Json
         if ($package.name -ne "@wonderwhy-er/desktop-commander") {
             throw "unexpected package name: $($package.name)"
@@ -49,15 +91,15 @@ try {
             throw "unexpected package version: $($package.version)"
         }
 
-        & $npm ci --ignore-scripts
+        & $NpmExe ci --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
 
-        & $npm rebuild "@vscode/ripgrep"
+        & $NpmExe rebuild "@vscode/ripgrep"
         if ($LASTEXITCODE -ne 0) {
             throw "Desktop Commander ripgrep dependency rebuild failed"
         }
 
-        & $npm run build
+        & $NpmExe run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
         & $NodeExe "dist\npm-scripts\verify-ripgrep.js"
@@ -66,7 +108,7 @@ try {
         }
 
         if ($RunTests) {
-            & $npm test
+            & $NpmExe test
             if ($LASTEXITCODE -ne 0) { throw "DesktopCommander upstream test suite failed" }
         }
 
@@ -126,8 +168,16 @@ catch {
     if (Test-Path -LiteralPath $staging) {
         Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
     }
+    if ($archiveStage -and (Test-Path -LiteralPath $archiveStage)) {
+        Remove-Item -LiteralPath $archiveStage -Recurse -Force -ErrorAction SilentlyContinue
+    }
     if ($backup -and (Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $InstallRoot)) {
         Move-Item -LiteralPath $backup -Destination $InstallRoot
     }
     throw
+}
+finally {
+    if ($archiveStage -and (Test-Path -LiteralPath $archiveStage)) {
+        Remove-Item -LiteralPath $archiveStage -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
