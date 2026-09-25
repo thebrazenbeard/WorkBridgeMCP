@@ -64,8 +64,7 @@ if ($installerText.Contains('write_roots = @($roots)')) {
 }
 $emptyWriteRootAssignments = [regex]::Matches(
     $installerText,
-    '(?m)^\s*write_roots\s*=\s*@\(\)\s*
-
+    '(?m)^\s*write_roots\s*=\s*@\(\)\s*$'
 ).Count
 if ($emptyWriteRootAssignments -lt 2) {
     throw 'Lappy installer must keep both installed config and qualification receipt write_roots empty.'
