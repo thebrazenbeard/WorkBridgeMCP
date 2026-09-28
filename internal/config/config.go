@@ -37,6 +37,7 @@ type ProcessConfig struct {
 	MaxRuntimeSeconds  float64           `json:"max_runtime_seconds"`
 	MaxOutputBytes     int64             `json:"max_output_bytes"`
 	MaxArgs            int               `json:"max_args"`
+	MaxConcurrent      int               `json:"max_concurrent"`
 }
 
 type HTTPConfig struct {
@@ -99,6 +100,9 @@ func (c *Config) applyDefaults() {
 	if c.Process.MaxArgs == 0 {
 		c.Process.MaxArgs = 64
 	}
+	if c.Process.MaxConcurrent == 0 {
+		c.Process.MaxConcurrent = 4
+	}
 	if strings.TrimSpace(c.HTTP.Listen) == "" {
 		c.HTTP.Listen = "127.0.0.1:8765"
 	}
@@ -144,6 +148,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Process.MaxArgs < 1 || c.Process.MaxArgs > 256 {
 		return errors.New("process.max_args must be between 1 and 256")
+	}
+	if c.Process.MaxConcurrent < 1 || c.Process.MaxConcurrent > 32 {
+		return errors.New("process.max_concurrent must be between 1 and 32")
 	}
 	if c.Process.Enabled {
 		if len(c.Process.AllowedExecutables) == 0 {
