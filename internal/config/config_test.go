@@ -87,3 +87,29 @@ func TestRejectsDuplicateGrantNamesAndBadTokenEnv(t *testing.T) {
 		t.Fatalf("bad token env accepted: %v", err)
 	}
 }
+
+
+func TestProcessMaxConcurrentDefaultsAndValidates(t *testing.T) {
+	base := []byte(`{"schema":"WORKBRIDGE_CONFIG_V1","read_roots":[],"write_roots":[],"limits":{},"process":{"enabled":false},"http":{}}`)
+	cfg, err := Parse(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Process.MaxConcurrent != 4 {
+		t.Fatalf("default max_concurrent = %d, want 4", cfg.Process.MaxConcurrent)
+	}
+
+	valid := []byte(`{"schema":"WORKBRIDGE_CONFIG_V1","read_roots":[],"write_roots":[],"limits":{},"process":{"enabled":false,"max_concurrent":1},"http":{}}`)
+	cfg, err = Parse(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Process.MaxConcurrent != 1 {
+		t.Fatalf("explicit max_concurrent = %d, want 1", cfg.Process.MaxConcurrent)
+	}
+
+	tooHigh := []byte(`{"schema":"WORKBRIDGE_CONFIG_V1","read_roots":[],"write_roots":[],"limits":{},"process":{"enabled":false,"max_concurrent":33},"http":{}}`)
+	if _, err := Parse(tooHigh); err == nil {
+		t.Fatal("max_concurrent above 32 accepted")
+	}
+}
