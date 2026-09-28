@@ -149,8 +149,8 @@ func (c *Config) Validate() error {
 	if c.Process.MaxArgs < 1 || c.Process.MaxArgs > 256 {
 		return errors.New("process.max_args must be between 1 and 256")
 	}
-	if c.Process.MaxConcurrent < 1 || c.Process.MaxConcurrent > 32 {
-		return errors.New("process.max_concurrent must be between 1 and 32")
+	if c.Process.MaxConcurrent < 0 || c.Process.MaxConcurrent > 32 {
+		return errors.New("process.max_concurrent must be zero/default or between 1 and 32")
 	}
 	if c.Process.Enabled {
 		if len(c.Process.AllowedExecutables) == 0 {
