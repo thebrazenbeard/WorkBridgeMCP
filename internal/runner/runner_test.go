@@ -3,8 +3,8 @@ package runner
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
