@@ -148,27 +148,74 @@ if ($listenerBefore.Count -gt 0 -and $null -eq $existingTask) {
     throw "Port $Port is already listening before WorkBridge installation."
 }
 
+if ($SourceCommit -notmatch '^[0-9a-f]{40}$') { throw "SourceCommit must be full lowercase 40-hex" }
+
+$cacheRoot = Join-Path (Join-Path $DataRoot "build-cache") $SourceCommit
+$cacheBinaryPath = Join-Path $cacheRoot "workbridge-mcp.exe"
+$cacheManifestPath = Join-Path $cacheRoot "qualification.json"
 $tempRoot = Join-Path $env:TEMP ("workbridge-install-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
-try {
-    $go = Get-PortableGo -Version $GoVersion -TempRoot $tempRoot
-    $source = Get-ExactSource -Commit $SourceCommit -TempRoot $tempRoot
-    $built = Join-Path $tempRoot "workbridge-mcp.exe"
+$qualifiedBinary = $null
+$buildCacheStatus = "MISS"
 
-    Push-Location $source
-    try {
-        $env:CGO_ENABLED = "0"
-        & $go mod verify
-        if ($LASTEXITCODE -ne 0) { throw "go mod verify failed" }
-        & $go test ./...
-        if ($LASTEXITCODE -ne 0) { throw "go test failed" }
-        & $go build -trimpath -o $built ./cmd/workbridge-mcp
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $built -PathType Leaf)) { throw "WorkBridge build failed" }
-        & (Join-Path $source "scripts\Test-WorkBridgeHttpBinary.ps1") -Binary $built
-        if ($LASTEXITCODE -ne 0) { throw "WorkBridge PowerShell 5.1 HTTP smoke failed" }
+try {
+    New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
+    Protect-PrivateDirectory -Path $DataRoot
+
+    if ((Test-Path -LiteralPath $cacheBinaryPath -PathType Leaf) -and (Test-Path -LiteralPath $cacheManifestPath -PathType Leaf)) {
+        try {
+            $cacheManifest = Get-Content -LiteralPath $cacheManifestPath -Raw | ConvertFrom-Json
+            $cachedHash = (Get-FileHash -LiteralPath $cacheBinaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($cacheManifest.schema -eq "WORKBRIDGE_LOCAL_BUILD_CACHE_V1" -and
+                $cacheManifest.source_commit -eq $SourceCommit -and
+                $cacheManifest.go_version -eq $GoVersion -and
+                $cacheManifest.http_smoke -eq "PASS" -and
+                $cacheManifest.binary_sha256 -eq $cachedHash) {
+                $qualifiedBinary = $cacheBinaryPath
+                $buildCacheStatus = "HIT"
+            }
+        } catch {
+            $qualifiedBinary = $null
+            $buildCacheStatus = "MISS"
+        }
     }
-    finally { Pop-Location }
+
+    if ($null -eq $qualifiedBinary) {
+        $go = Get-PortableGo -Version $GoVersion -TempRoot $tempRoot
+        $source = Get-ExactSource -Commit $SourceCommit -TempRoot $tempRoot
+        $built = Join-Path $tempRoot "workbridge-mcp.exe"
+
+        Push-Location $source
+        try {
+            $env:CGO_ENABLED = "0"
+            & $go mod verify
+            if ($LASTEXITCODE -ne 0) { throw "go mod verify failed" }
+            & $go test ./...
+            if ($LASTEXITCODE -ne 0) { throw "go test failed" }
+            & $go build -trimpath -o $built ./cmd/workbridge-mcp
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $built -PathType Leaf)) { throw "WorkBridge build failed" }
+            & (Join-Path $source "scripts\Test-WorkBridgeHttpBinary.ps1") -Binary $built
+            if ($LASTEXITCODE -ne 0) { throw "WorkBridge PowerShell 5.1 HTTP smoke failed" }
+        }
+        finally { Pop-Location }
+
+        $builtHash = (Get-FileHash -LiteralPath $built -Algorithm SHA256).Hash.ToLowerInvariant()
+        New-Item -ItemType Directory -Force -Path $cacheRoot | Out-Null
+        Copy-Item -LiteralPath $built -Destination $cacheBinaryPath -Force
+        $cacheManifest = [ordered]@{
+            schema = "WORKBRIDGE_LOCAL_BUILD_CACHE_V1"
+            source_commit = $SourceCommit
+            go_version = $GoVersion
+            binary_sha256 = $builtHash
+            http_smoke = "PASS"
+        }
+        $cacheUtf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+        [IO.File]::WriteAllText($cacheManifestPath, (($cacheManifest | ConvertTo-Json -Depth 5) + [Environment]::NewLine), $cacheUtf8NoBom)
+        Protect-PrivateDirectory -Path $DataRoot
+        $qualifiedBinary = $cacheBinaryPath
+        $buildCacheStatus = "MISS_BUILT_AND_CACHED"
+    }
 
     if ($null -ne $existingTask) {
         Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -180,7 +227,7 @@ try {
     Protect-PrivateDirectory -Path $DataRoot
 
     $binaryPath = Join-Path $InstallRoot "workbridge-mcp.exe"
-    Copy-Item -LiteralPath $built -Destination $binaryPath -Force
+    Copy-Item -LiteralPath $qualifiedBinary -Destination $binaryPath -Force
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
     $tokenPath = Join-Path $DataRoot "http-token.txt"
@@ -242,6 +289,7 @@ try {
     )
     $runnerText = ($runnerLines -join [Environment]::NewLine) + [Environment]::NewLine
     [IO.File]::WriteAllText($runnerPath, $runnerText, $utf8NoBom)
+    Remove-Item -LiteralPath $runnerErrorPath -Force -ErrorAction SilentlyContinue
     Protect-PrivateDirectory -Path $DataRoot
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runnerPath + '"')
@@ -308,6 +356,12 @@ try {
         workbridge_version = $health.version
         binary = $binaryPath
         binary_sha256 = (Get-FileHash -LiteralPath $binaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        build_cache = [ordered]@{
+            status = $buildCacheStatus
+            manifest = $cacheManifestPath
+            source_commit = $SourceCommit
+            go_version = $GoVersion
+        }
         config = $configPath
         task = [ordered]@{
             name = $TaskName
