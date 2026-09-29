@@ -119,11 +119,13 @@ try {
   }
 
   const marker = "WORKBRIDGE_DUPLICATE_OK";
-  const runtime = '"' + process.execPath.replaceAll('"', '\\"') + '"';
-  const command = runtime + " -e \"process.stdout.write('" + marker + "')\"";
+  const command = process.platform === "win32"
+    ? "Write-Output '" + marker + "'"
+    : "printf '%s\\n' '" + marker + "'";
+  const shell = process.platform === "win32" ? "powershell.exe" : "/bin/sh";
   const started = await request("tools/call", {
     name: "start_process",
-    arguments: { command, timeout_ms: 5000 },
+    arguments: { command, shell, timeout_ms: 5000 },
   }, 20000);
   const text = (started?.content || [])
     .filter((item) => item?.type === "text")
