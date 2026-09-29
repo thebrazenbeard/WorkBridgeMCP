@@ -12,6 +12,8 @@ $UpstreamRepository = "https://github.com/wonderwhy-er/DesktopCommanderMCP.git"
 $UpstreamCommit = "550a0b3e31da18b7cf25e87ed840e3d953b6da42"
 $ExpectedVersion = "0.2.51"
 $UpstreamArchive = "https://github.com/wonderwhy-er/DesktopCommanderMCP/archive/$UpstreamCommit.zip"
+$RepositoryRoot = Split-Path -Parent $PSScriptRoot
+$OverlayRoot = Join-Path $RepositoryRoot "overlays\desktop-commander"
 
 function Require-Command([string]$Name) {
     $cmd = Get-Command $Name -ErrorAction Stop
@@ -105,6 +107,21 @@ try {
         & $NpmExe rebuild "@vscode/ripgrep"
         if ($LASTEXITCODE -ne 0) {
             throw "Desktop Commander ripgrep dependency rebuild failed"
+        }
+
+        $overlayFiles = @(
+            @{ Source = (Join-Path $OverlayRoot "src\terminal-manager.ts"); Destination = "src\terminal-manager.ts" },
+            @{ Source = (Join-Path $OverlayRoot "src\workbridge-process-admission.ts"); Destination = "src\workbridge-process-admission.ts" },
+            @{ Source = (Join-Path $OverlayRoot "test\test-workbridge-process-concurrency.js"); Destination = "test\test-workbridge-process-concurrency.js" }
+        )
+        foreach ($overlayFile in $overlayFiles) {
+            if (-not (Test-Path -LiteralPath $overlayFile.Source -PathType Leaf)) {
+                throw "WorkBridge overlay source missing: $($overlayFile.Source)"
+            }
+            $destination = Join-Path $staging $overlayFile.Destination
+            $destinationParent = Split-Path -Parent $destination
+            New-Item -ItemType Directory -Force -Path $destinationParent | Out-Null
+            Copy-Item -LiteralPath $overlayFile.Source -Destination $destination -Force
         }
 
         & $NpmExe run build
