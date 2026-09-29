@@ -1,0 +1,36 @@
+{
+  "interface": {
+    "displayName": "WorkBridge Desktop Commander",
+    "shortDescription": "Exact Desktop Commander on Lappy",
+    "longDescription": "Connects ChatGPT to the exact pinned DesktopCommanderMCP runtime on Lappy through VeraMesh Secure MCP Tunnel. Desktop Commander owns the filesystem, search, editing, process, configuration, history, and document tool semantics. WorkBridge pins and qualifies the upstream runtime; VeraMesh transports the MCP stream without renaming or translating tools.",
+    "developerName": "Patrick Sims",
+    "category": "Productivity",
+    "capabilities": [
+      "Read, write, edit, move, and inspect files on Lappy through Desktop Commander",
+      "Run arbitrary Desktop Commander command strings and manage interactive sessions",
+      "Search files progressively and manage running OS processes",
+      "Use Desktop Commander configuration, history, usage, and document tools"
+    ],
+    "defaultPrompt": [
+      "Use WorkBridge Desktop Commander to inspect Lappy and continue the active work.",
+      "Run the requested command on Lappy and verify its output.",
+      "Use Desktop Commander's native file and search tools rather than translating them into another API."
+    ]
+  },
+  "name": "workbridge-desktop-commander",
+  "version": "0.1.0",
+  "description": "Exact DesktopCommanderMCP 0.2.51 on Lappy through the VeraMesh Secure MCP Tunnel; WorkBridge owns source pinning and qualification, not tool translation.",
+  "author": {
+    "name": "Patrick Sims"
+  },
+  "keywords": [
+    "desktop-commander",
+    "workbridge",
+    "veramesh",
+    "mcp",
+    "lappy"
+  ],
+  "repository": "https://github.com/thebrazenbeard/WorkBridgeMCP",
+  "skills": "./skills",
+  "mcpServers": "./.mcp.json"
+}

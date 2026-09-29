@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "workbridge_desktop_commander": {
+      "type": "streamable-http",
+      "url": "__WORKBRIDGE_DESKTOP_COMMANDER_MCP_URL__"
+    }
+  }
+}
