@@ -1,0 +1,50 @@
+{
+  "schema": "WORKBRIDGE_DESKTOP_COMMANDER_CHATGPT_CONTRACT_V1",
+  "device": "lappy",
+  "upstream": {
+    "repository": "wonderwhy-er/DesktopCommanderMCP",
+    "commit": "550a0b3e31da18b7cf25e87ed840e3d953b6da42",
+    "package": "@wonderwhy-er/desktop-commander",
+    "version": "0.2.51"
+  },
+  "transport": {
+    "owner": "VeraMesh",
+    "mode": "Secure MCP Tunnel",
+    "semantic_translation": false
+  },
+  "required_tools": [
+    "get_config",
+    "set_config_value",
+    "read_file",
+    "read_multiple_files",
+    "write_file",
+    "write_pdf",
+    "create_directory",
+    "list_directory",
+    "move_file",
+    "start_search",
+    "get_more_search_results",
+    "stop_search",
+    "list_searches",
+    "get_file_info",
+    "edit_block",
+    "start_process",
+    "read_process_output",
+    "interact_with_process",
+    "force_terminate",
+    "list_sessions",
+    "list_processes",
+    "kill_process",
+    "get_usage_stats",
+    "get_recent_tool_calls",
+    "give_feedback_to_desktop_commander",
+    "get_prompts"
+  ],
+  "required_process_contract": {
+    "tool": "start_process",
+    "required_argument": "command",
+    "argument_type": "string",
+    "unrestricted_command_string_shell": true
+  },
+  "claim_ceiling": "Source/app contract only. Installation, tunnel activation, ChatGPT action scan, and live tool effects require separate runtime evidence."
+}
