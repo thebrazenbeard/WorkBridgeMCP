@@ -10,6 +10,7 @@ Set-StrictMode -Version Latest
 $UpstreamRepository = "https://github.com/wonderwhy-er/DesktopCommanderMCP.git"
 $UpstreamCommit = "550a0b3e31da18b7cf25e87ed840e3d953b6da42"
 $ExpectedVersion = "0.2.51"
+$OverlayRoot = Join-Path (Split-Path -Parent $PSScriptRoot) "overlays\desktop-commander"
 
 function Require-Command([string]$Name) {
     $cmd = Get-Command $Name -ErrorAction Stop
@@ -57,6 +58,10 @@ try {
             throw "Desktop Commander ripgrep dependency rebuild failed"
         }
 
+        Copy-Item -LiteralPath (Join-Path $OverlayRoot "src\terminal-manager.ts") -Destination "src\terminal-manager.ts" -Force
+        Copy-Item -LiteralPath (Join-Path $OverlayRoot "src\workbridge-process-admission.ts") -Destination "src\workbridge-process-admission.ts" -Force
+        Copy-Item -LiteralPath (Join-Path $OverlayRoot "test\test-workbridge-process-concurrency.js") -Destination "test\test-workbridge-process-concurrency.js" -Force
+
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
@@ -64,6 +69,9 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Desktop Commander ripgrep verification failed"
         }
+
+        & $NodeExe "test\test-workbridge-process-concurrency.js"
+        if ($LASTEXITCODE -ne 0) { throw "WorkBridge process concurrency overlay test failed" }
 
         if ($RunTests) {
             & $npm test
@@ -94,6 +102,8 @@ try {
             entrypoint_sha256 = $entryHash
             mcp_args = @("dist\index.js", "--no-onboarding")
             unrestricted_command_string_shell = $true
+            workbridge_process_concurrency = 4
+            workbridge_overlay = "bounded-process-concurrency-v1"
         }
         $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 "workbridge-desktop-commander.manifest.json"
     }

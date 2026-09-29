@@ -30,6 +30,7 @@ type Runner struct {
 	timeout time.Duration
 	maxOut  int64
 	maxArgs int
+	slots   chan struct{}
 }
 
 type Result struct {
@@ -50,6 +51,10 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 		_ = roots.Close()
 		return nil, err
 	}
+	maxConcurrent := cfg.MaxConcurrent
+	if maxConcurrent == 0 {
+		maxConcurrent = 4
+	}
 	r := &Runner{
 		enabled: cfg.Enabled,
 		grants: make(map[string]grant),
@@ -57,6 +62,7 @@ func New(cfg config.ProcessConfig) (*Runner, error) {
 		timeout: time.Duration(cfg.MaxRuntimeSeconds * float64(time.Second)),
 		maxOut: cfg.MaxOutputBytes,
 		maxArgs: cfg.MaxArgs,
+		slots: make(chan struct{}, maxConcurrent),
 	}
 	if !cfg.Enabled {
 		return r, nil
@@ -97,6 +103,19 @@ func (r *Runner) Close() error {
 }
 
 func (r *Runner) Enabled() bool { return r != nil && r.enabled }
+
+func (r *Runner) acquire(ctx context.Context) error {
+	select {
+	case r.slots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (r *Runner) release() {
+	<-r.slots
+}
 
 func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir string) (*Result, error) {
 	if !r.Enabled() {
@@ -146,6 +165,10 @@ func (r *Runner) Run(ctx context.Context, name string, args []string, workingDir
 	if before != g.sha256 {
 		return nil, errors.New("executable content identity changed since admission")
 	}
+	if err := r.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer r.release()
 
 	runCtx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
