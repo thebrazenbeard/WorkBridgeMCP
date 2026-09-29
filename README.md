@@ -2,6 +2,16 @@
 
 # WorkBridgeMCP
 
+## Two runtime modes
+
+WorkBridge now has two deliberately different workstation models:
+
+- **bounded native WorkBridge** — the Go server described below, with admitted roots and explicit process grants;
+- **exact Desktop Commander duplicate** — the actual pinned MIT DesktopCommanderMCP source, built and packaged by WorkBridge and transported by VeraMesh without semantic translation.
+
+For the current single-device ChatGPT experiment, see [WorkBridge ChatGPT Exact Desktop Commander App V1](docs/CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md). Do not infer that the bounded Go tool surface and the Desktop Commander duplicate are interchangeable.
+
+
 WorkBridgeMCP is a small local Model Context Protocol server that gives an MCP client
 bounded access to a workstation without turning the workstation into an unrestricted
 remote shell.
