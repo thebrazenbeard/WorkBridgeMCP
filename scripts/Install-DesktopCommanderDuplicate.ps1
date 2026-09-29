@@ -115,6 +115,9 @@ try {
             throw "Desktop Commander ripgrep verification failed"
         }
 
+        & $NodeExe "test\test-workbridge-process-concurrency.js"
+        if ($LASTEXITCODE -ne 0) { throw "WorkBridge process concurrency overlay test failed" }
+
         if ($RunTests) {
             & $NpmExe test
             if ($LASTEXITCODE -ne 0) { throw "DesktopCommander upstream test suite failed" }
@@ -144,6 +147,8 @@ try {
             entrypoint_sha256 = $entryHash
             mcp_args = @("dist\index.js", "--no-onboarding")
             unrestricted_command_string_shell = $true
+            workbridge_process_concurrency = 4
+            workbridge_overlay = "bounded-process-concurrency-v1"
         }
         $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 "workbridge-desktop-commander.manifest.json"
     }
