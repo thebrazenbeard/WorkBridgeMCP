@@ -87,18 +87,20 @@ func New(cfg *config.Config) (*Runtime, error) {
 		Name: "workbridge_health",
 		Description: "Report the WorkBridge version and enabled local capabilities.",
 	}, rt.health)
-	mcp.AddTool(server, &mcp.Tool{
-		Name: "workspace_list",
-		Description: "List one admitted directory. Paths outside configured read roots are denied.",
-	}, rt.list)
-	mcp.AddTool(server, &mcp.Tool{
-		Name: "workspace_stat",
-		Description: "Stat one admitted filesystem path.",
-	}, rt.stat)
-	mcp.AddTool(server, &mcp.Tool{
-		Name: "workspace_read_text",
-		Description: "Read a bounded UTF-8 text file from configured read roots.",
-	}, rt.readText)
+	if len(cfg.ReadRoots) > 0 {
+		mcp.AddTool(server, &mcp.Tool{
+			Name: "workspace_list",
+			Description: "List one admitted directory. Paths outside configured read roots are denied.",
+		}, rt.list)
+		mcp.AddTool(server, &mcp.Tool{
+			Name: "workspace_stat",
+			Description: "Stat one admitted filesystem path.",
+		}, rt.stat)
+		mcp.AddTool(server, &mcp.Tool{
+			Name: "workspace_read_text",
+			Description: "Read a bounded UTF-8 text file from configured read roots.",
+		}, rt.readText)
+	}
 	if ws.CanWrite() {
 		mcp.AddTool(server, &mcp.Tool{
 			Name: "workspace_write_text",
