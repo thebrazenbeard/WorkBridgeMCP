@@ -64,6 +64,15 @@ type MkdirOutput struct {
 	Created bool `json:"created"`
 }
 
+type MoveInput struct {
+	Source      string `json:"source" jsonschema:"absolute source path admitted by configured write roots"`
+	Destination string `json:"destination" jsonschema:"absolute destination path admitted by configured write roots"`
+}
+
+type MoveOutput struct {
+	Moved bool `json:"moved"`
+}
+
 type RunInput struct {
 	Executable string   `json:"executable" jsonschema:"configured executable grant name, never an arbitrary path"`
 	Args       []string `json:"args,omitempty" jsonschema:"arguments passed literally without a shell"`
@@ -110,6 +119,10 @@ func New(cfg *config.Config) (*Runtime, error) {
 			Name: "workspace_mkdir",
 			Description: "Create an admitted directory, optionally including missing parents, inside configured write roots.",
 		}, rt.mkdir)
+		mcp.AddTool(server, &mcp.Tool{
+			Name: "workspace_move",
+			Description: "Move or rename one path within the same configured write root without overwriting an existing destination.",
+		}, rt.move)
 	}
 	if pr.Enabled() {
 		mcp.AddTool(server, &mcp.Tool{
@@ -168,6 +181,11 @@ func (rt *Runtime) writeText(_ context.Context, _ *mcp.CallToolRequest, input Wr
 func (rt *Runtime) mkdir(_ context.Context, _ *mcp.CallToolRequest, input MkdirInput) (*mcp.CallToolResult, MkdirOutput, error) {
 	err := rt.Workspace.Mkdir(input.Path, input.Parents)
 	return nil, MkdirOutput{Created: err == nil}, err
+}
+
+func (rt *Runtime) move(_ context.Context, _ *mcp.CallToolRequest, input MoveInput) (*mcp.CallToolResult, MoveOutput, error) {
+	err := rt.Workspace.Move(input.Source, input.Destination)
+	return nil, MoveOutput{Moved: err == nil}, err
 }
 
 func (rt *Runtime) run(ctx context.Context, _ *mcp.CallToolRequest, input RunInput) (*mcp.CallToolResult, *runner.Result, error) {

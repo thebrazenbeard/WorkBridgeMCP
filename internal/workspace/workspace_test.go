@@ -123,3 +123,51 @@ func TestStatReportsSymlinkWithoutBreakingCompatibilityFields(t *testing.T) {
 		t.Fatalf("legacy compatibility fields did not follow symlink target: %#v", stat)
 	}
 }
+
+
+func TestMoveIsSameRootAndNoReplace(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.mkv")
+	destination := filepath.Join(root, "renamed.mkv")
+	if err := os.WriteFile(source, []byte("media"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(testConfig(root, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.Move(source, destination); err != nil {
+		t.Fatalf("move failed: %v", err)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Fatalf("source still exists after move: %v", err)
+	}
+	if got, err := os.ReadFile(destination); err != nil || string(got) != "media" {
+		t.Fatalf("destination mismatch: %q err=%v", got, err)
+	}
+	second := filepath.Join(root, "second.mkv")
+	if err := os.WriteFile(second, []byte("second"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Move(second, destination); err == nil || !strings.Contains(err.Error(), "destination already exists") {
+		t.Fatalf("existing destination was overwritten or wrong error: %v", err)
+	}
+}
+
+func TestMoveOutsideWriteRootDenied(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.mkv")
+	if err := os.WriteFile(source, []byte("media"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(testConfig(root, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	outside := filepath.Join(t.TempDir(), "outside.mkv")
+	if err := s.Move(source, outside); err == nil {
+		t.Fatal("move outside configured write root succeeded")
+	}
+}

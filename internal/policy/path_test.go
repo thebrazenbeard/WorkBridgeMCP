@@ -65,3 +65,28 @@ func TestRootPolicyRejectsParentTraversal(t *testing.T) {
 		t.Fatal("parent traversal accepted")
 	}
 }
+
+
+func TestRenameNoReplaceRefusesExistingDestination(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "a.txt")
+	destination := filepath.Join(root, "b.txt")
+	if err := os.WriteFile(source, []byte("a"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, []byte("b"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := NewRootPolicy([]string{root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if _, _, err := p.RenameNoReplace(source, destination); err == nil {
+		t.Fatal("existing destination was replaced")
+	}
+	got, err := os.ReadFile(destination)
+	if err != nil || string(got) != "b" {
+		t.Fatalf("destination changed: %q err=%v", got, err)
+	}
+}

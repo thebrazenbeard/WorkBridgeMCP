@@ -55,7 +55,7 @@ func TestMCPServerListsAndCallsReadTool(t *testing.T) {
 			t.Fatalf("missing tool %q", name)
 		}
 	}
-	if names["workspace_write_text"] || names["process_run"] {
+	if names["workspace_write_text"] || names["workspace_move"] || names["process_run"] {
 		t.Fatalf("disabled mutation tool exposed: %#v", names)
 	}
 
@@ -101,6 +101,51 @@ func TestMCPServerOmitsReadToolsWithoutReadRoots(t *testing.T) {
 	}
 	if len(tools.Tools) != 1 || tools.Tools[0].Name != "workbridge_health" {
 		t.Fatalf("rootless profile exposed unavailable tools: %#v", tools.Tools)
+	}
+	clientSession.Close()
+	serverSession.Wait()
+}
+
+
+func TestMCPServerExposesMoveOnlyWithWriteRoot(t *testing.T) {
+	root := t.TempDir()
+	cfg := &config.Config{
+		Schema: config.Schema,
+		ReadRoots: []string{root},
+		WriteRoots: []string{root},
+		Limits: config.Limits{MaxReadBytes: 1024, MaxWriteBytes: 1024, MaxDirectoryEntries: 10},
+		Process: config.ProcessConfig{MaxRuntimeSeconds: 1, MaxOutputBytes: 1024, MaxArgs: 8},
+		HTTP: config.HTTPConfig{Listen: "127.0.0.1:8765", Path: "/mcp"},
+	}
+	rt, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Close()
+	ctx := context.Background()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := rt.Server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "workbridge-test", Version: "0"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientSession.Close()
+	tools, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tool := range tools.Tools {
+		if tool.Name == "workspace_move" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("workspace_move missing with write root")
 	}
 	clientSession.Close()
 	serverSession.Wait()
