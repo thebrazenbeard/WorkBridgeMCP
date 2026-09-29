@@ -225,6 +225,14 @@ func (s *Service) WriteText(path, content string, overwrite bool) (int, error) {
 	return len(content), nil
 }
 
+func (s *Service) Move(source, destination string) error {
+	if s.write.Empty() {
+		return errors.New("write capability is disabled")
+	}
+	_, _, err := s.write.RenameNoReplace(source, destination)
+	return err
+}
+
 func (s *Service) Mkdir(path string, parents bool) error {
 	if s.write.Empty() {
 		return errors.New("write capability is disabled")

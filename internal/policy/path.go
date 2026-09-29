@@ -158,6 +158,32 @@ func (p *RootPolicy) Lstat(path string) (fs.FileInfo, string, error) {
 	return info, abs, nil
 }
 
+func (p *RootPolicy) RenameNoReplace(source, destination string) (string, string, error) {
+	sourceEntry, sourceRel, sourceAbs, err := p.match(source)
+	if err != nil {
+		return "", "", err
+	}
+	destinationEntry, destinationRel, destinationAbs, err := p.match(destination)
+	if err != nil {
+		return "", "", err
+	}
+	if sourceEntry != destinationEntry {
+		return "", "", errors.New("source and destination must be within the same configured root")
+	}
+	if _, err := sourceEntry.root.Lstat(sourceRel); err != nil {
+		return "", "", err
+	}
+	if _, err := destinationEntry.root.Lstat(destinationRel); err == nil {
+		return "", "", errors.New("destination already exists")
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return "", "", err
+	}
+	if err := sourceEntry.root.Rename(sourceRel, destinationRel); err != nil {
+		return "", "", err
+	}
+	return sourceAbs, destinationAbs, nil
+}
+
 func (p *RootPolicy) Mkdir(path string, perm fs.FileMode, parents bool) (string, error) {
 	entry, rel, abs, err := p.match(path)
 	if err != nil {
