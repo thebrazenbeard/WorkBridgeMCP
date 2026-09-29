@@ -1,5 +1,8 @@
 # DesktopCommanderMCP Source Admission V1
 
+> **Scope / supersession note (2026-09-29):** This document governs the earlier **bounded native WorkBridge adaptation** path only. Its rules such as "do not add an unrestricted shell-string execution surface" are intentionally **not** the authority for exact Desktop Commander duplicate mode. For the Lappy duplicate and ChatGPT app, authority is `DESKTOP_COMMANDER_DUPLICATE_CONTRACT_V1.md` plus `CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md`, which preserve upstream `start_process(command=...)` semantics.
+
+
 Status: `ADAPT_WITH_PROVENANCE`
 
 ## Source
