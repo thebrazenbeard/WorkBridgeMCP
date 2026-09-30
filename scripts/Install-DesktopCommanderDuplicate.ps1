@@ -18,6 +18,59 @@ function Require-Command([string]$Name) {
     return $cmd.Source
 }
 
+function Initialize-RipgrepDownloadCache([string]$NodeExecutable) {
+    $packageVersion = "1.17.0"
+    $releaseVersion = "v15.0.0"
+    $arch = (& $NodeExecutable -p "process.arch").Trim()
+
+    switch ($arch) {
+        "x64" {
+            $target = "x86_64-pc-windows-msvc"
+            $expectedSha256 = "5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932"
+        }
+        "arm64" {
+            $target = "aarch64-pc-windows-msvc"
+            $expectedSha256 = "77757a3a8fc99705062e2594d4bbf48aafaee0faca65816455edb0d671bd534e"
+        }
+        "ia32" {
+            $target = "i686-pc-windows-msvc"
+            $expectedSha256 = "4f98e8fcdfc2206b831cb8032f8a1befbb99119a57033c08f244874d52345416"
+        }
+        default {
+            throw "unsupported Node architecture for pinned ripgrep bootstrap: $arch"
+        }
+    }
+
+    $assetName = "ripgrep-$releaseVersion-$target.zip"
+    $cacheDir = Join-Path ([IO.Path]::GetTempPath()) "vscode-ripgrep-cache-$packageVersion"
+    $assetPath = Join-Path $cacheDir $assetName
+
+    if (Test-Path -LiteralPath $assetPath -PathType Leaf) {
+        $cachedSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $assetPath).Hash.ToLowerInvariant()
+        if ($cachedSha256 -eq $expectedSha256) {
+            return
+        }
+        Remove-Item -LiteralPath $assetPath -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+    $downloadPath = "$assetPath.download.$([Guid]::NewGuid().ToString("N"))"
+    $assetUrl = "https://github.com/microsoft/ripgrep-prebuilt/releases/download/$releaseVersion/$assetName"
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $assetUrl -OutFile $downloadPath
+        $downloadSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $downloadPath).Hash.ToLowerInvariant()
+        if ($downloadSha256 -ne $expectedSha256) {
+            throw "ripgrep bootstrap hash mismatch: expected $expectedSha256 got $downloadSha256"
+        }
+        Move-Item -LiteralPath $downloadPath -Destination $assetPath -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $downloadPath) {
+            Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 $gitCommand = Get-Command "git" -ErrorAction SilentlyContinue
 $git = if ($gitCommand) { $gitCommand.Source } else { $null }
 
@@ -48,6 +101,8 @@ New-Item -ItemType Directory -Force -Path $parent | Out-Null
 $staging = Join-Path $parent ("DesktopCommanderMCP.staging." + [Guid]::NewGuid().ToString("N"))
 $backup = $null
 $archiveStage = $null
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$overlayRoot = Join-Path $repoRoot "overlays\desktop-commander"
 
 try {
     if ($git) {
@@ -81,6 +136,21 @@ try {
         Move-Item -LiteralPath $dirs[0].FullName -Destination $staging
     }
 
+    $overlayFiles = @(
+        "src\terminal-manager.ts",
+        "src\workbridge-process-admission.ts",
+        "test\test-workbridge-process-concurrency.js"
+    )
+    foreach ($relative in $overlayFiles) {
+        $overlaySource = Join-Path $overlayRoot $relative
+        if (-not (Test-Path -LiteralPath $overlaySource -PathType Leaf)) {
+            throw "WorkBridge overlay source missing: $overlaySource"
+        }
+        $overlayTarget = Join-Path $staging $relative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $overlayTarget) | Out-Null
+        Copy-Item -LiteralPath $overlaySource -Destination $overlayTarget -Force
+    }
+
     Push-Location $staging
     $originalPath = $env:PATH
     try {
@@ -101,6 +171,8 @@ try {
 
         & $NpmExe ci --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+
+        Initialize-RipgrepDownloadCache -NodeExecutable $NodeExe
 
         & $NpmExe rebuild "@vscode/ripgrep"
         if ($LASTEXITCODE -ne 0) {
