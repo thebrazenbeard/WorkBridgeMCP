@@ -150,3 +150,83 @@ This remains candidate qualification, not live deployment verification.
 The first PR workflow attempt exposed an unrelated Windows-only dependency bootstrap failure before the WorkBridge overlay step: `@vscode/ripgrep` attempted unauthenticated release discovery through the GitHub API and received HTTP 403.
 
 The supported WorkBridge duplicate installer already avoids that failure mode by downloading the exact pinned v15.0.0 Windows asset directly and verifying SHA-256 before `npm rebuild`. The PR workflow now primes the same verified cache before the Windows rebuild instead of weakening or skipping Windows qualification.
+
+
+## Live V2 canary route qualification
+
+The qualified V2 duplicate was copied byte-for-byte from the already-qualified scratch installation into a side-by-side live candidate root:
+
+`C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP.v2.a135586`
+
+The staged candidate preserved these verified hashes:
+
+- manifest SHA-256: `8da114dd4c1aee247a5e28230b9bc319da51148229e1d5f68f188abaf5501fe6`;
+- packaged Node SHA-256: `3602f2bb1a10f2cbab4c36886218a33c1ab3db87290e73b033c46c77147d0237`;
+- built `dist/index.js` SHA-256: `a4145198dc75cd34e7c7452c2054b4cc0d29e199ae1459961a17e4da25a13500`;
+- built V2 admission module SHA-256: `36af43eaefc53b5df8053923f0dc105ef24e77b1b5524d9062e6da39bec79408`.
+
+Instead of interrupting unrelated active work on the existing `lappy` device, the V2 candidate was attached temporarily to the already-running Commander server as a second device identity, `lappy-v2-canary`, using the existing authorized device credential and the V2 manifest trust hash. The original `lappy` route remained live throughout. No credential was rotated or exposed.
+
+Commander health reported two registered devices, each with execution capacity 8, before the canary load tests.
+
+### Eight-way canary
+
+Eight simultaneous two-second PowerShell workloads were sent through the live Commander MCP route to `lappy-v2-canary`.
+
+Result:
+
+- success: 8 / 8;
+- failure: 0;
+- p50 end-to-end: 2,859 ms;
+- p95 / max end-to-end: 3,375 ms;
+- all terminal lifetimes approximately 2.27–3.15 s.
+
+The aggregate health peak showed 9 execution-active requests only because the harness itself was one active request on the original `lappy` route; the canary supplied the other eight.
+
+Raw evidence:
+
+- `docs/evidence/WORKBRIDGE_COMMANDER_V2_CANARY_8WAY_20260930.json`
+- SHA-256 `9cef20ced307277c3bdc2487f9eefa3e26f1575f7a48ea4f6086cca8c923065d`
+
+### Full 64-context / 8-execution canary
+
+The harness was then detached before issuing 64 direct MCP requests to avoid consuming one of the shared upstream context slots.
+
+Observed live peaks:
+
+- upstream active: **64**;
+- upstream queued: **0**;
+- execution active: **8**;
+- execution queued: **56**;
+- success: **64 / 64**;
+- failed: **0**;
+- post-drain upstream active / queued: **0 / 0**;
+- post-drain execution active / queued: **0 / 0**.
+
+For the same two-second workload class used by the prior V1 stage trace:
+
+| Metric | V1 fixed-four overlay | V2 canary | Improvement |
+| --- | ---: | ---: | ---: |
+| p50 | 19,422 ms | 12,424 ms | 36.0% |
+| p95 | 40,058 ms | 21,252 ms | 46.9% |
+| max | 45,556 ms | 22,063 ms | 51.6% |
+| mean | 20,330 ms | 12,410 ms | 39.0% |
+
+Raw evidence:
+
+- `docs/evidence/WORKBRIDGE_COMMANDER_V2_CANARY_64X8_20260930.json`
+- SHA-256 `0c11ae4b17dceeeb80775d47856e1b9005f07faf57de3049179341c6fa8a2b5c`
+
+The canary was then stopped cleanly. Commander returned to one registered device (`lappy`).
+
+### Live cutover gate
+
+A rollback-safe cutover script was prepared at:
+
+`D:\VERA\tools\WorkBridgeCommander\Cutover-DesktopCommanderV2.ps1`
+
+It verifies old/new manifest hashes, candidate manifest semantics and packaged hashes, waits for the existing Desktop Commander child to become quiescent, preserves the old duplicate directory and launcher as rollback material, changes only the duplicate manifest trust anchor, restarts only the device-agent/duplicate path, performs a real MCP process probe, and automatically restores the old route if qualification fails.
+
+Its preflight correctly refused cutover while unrelated active Desktop Commander sessions existed. A later Commander health observation also showed a separate 32-context workload in flight on the original route. Therefore no live cutover was attempted during those collisions.
+
+This is a deliberate non-collision hold, not a failed V2 qualification.
