@@ -259,3 +259,25 @@ The direct cause of the rename failure is a cutover-script design defect: the de
 **ACCEPTED.** Future cutover logic must move to a neutral working directory before any process stop or install-root rename, and the recovery channel must be independent of the route being replaced.
 
 No credential, launcher trust anchor, server configuration, tunnel configuration, or V2 candidate file was changed by this failed cutover. The live WorkBridge Commander tool route is currently unavailable only because its device agent is stopped; the repository fix and side-by-side V2 candidate remain valid.
+
+
+## File-side recovery completion after process-route loss
+
+Using the surviving VeraPort filesystem channel, the qualified V2 candidate was promoted on disk after the failed live-process cutover:
+
+- prior live V1 tree moved to `C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP.v1.rollback.20260930-1803`;
+- qualified V2 candidate moved into the canonical live path `C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP`;
+- the canonical live manifest now reports overlay `bounded-process-concurrency-v2`;
+- the canonical launcher trust hash was updated from V1 `0e2e80ae5acd26c04e0adb5ac21b453edbe5b7004505998d2692b7b948ae1e2f` to V2 `8da114dd4c1aee247a5e28230b9bc319da51148229e1d5f68f188abaf5501fe6`;
+- the V1 rollback tree remains intact with overlay `bounded-process-concurrency-v1`.
+
+No process execution was available through the surviving ChatGPT connectors after the device agent stopped. The still-running server/tunnel use ephemeral random client/device tokens that were intentionally not persisted, so a new device agent cannot safely reattach without restarting the runtime and generating fresh tokens.
+
+Two local recovery launchers were therefore prepared without embedding any credential:
+
+- `C:\Users\patri\Desktop\FIX-WORKBRIDGE-V2.cmd` for immediate operator-triggered recovery;
+- `C:\Users\patri\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\WorkBridge-V2-Recover-Once.cmd` as a one-time next-sign-in fallback.
+
+Both launch the canonical `Start-WorkBridgeCommander.ps1`, which prompts for the OpenAI tunnel runtime API key using a hidden secure input. The desktop launcher first stops only the orphaned WorkBridge Commander server and tunnel by exact command-line/path match, then starts a fresh V2 runtime with new ephemeral client/device tokens. The fallback self-removes after successful startup.
+
+This is the remaining operational boundary: V2 is installed on disk, but live MCP recovery still requires a local process launch plus runtime-key input because no surviving connected ChatGPT tool currently exposes process execution on Lappy.
