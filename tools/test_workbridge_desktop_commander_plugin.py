@@ -91,6 +91,27 @@ class PluginContractTests(unittest.TestCase):
             installer.index("& $NpmExe run build"),
         )
 
+    def test_duplicate_installer_preseeds_pinned_ripgrep_cache(self):
+        installer = (
+            ROOT / "scripts" / "Install-DesktopCommanderDuplicate.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Initialize-RipgrepDownloadCache", installer)
+        self.assertIn('releaseVersion = "v15.0.0"', installer)
+        self.assertIn('target = "x86_64-pc-windows-msvc"', installer)
+        self.assertIn(
+            '"ripgrep-$releaseVersion-$target.zip"',
+            installer,
+        )
+        self.assertIn(
+            "5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932",
+            installer,
+        )
+        self.assertIn("Get-FileHash -Algorithm SHA256", installer)
+        self.assertLess(
+            installer.index("Initialize-RipgrepDownloadCache -NodeExecutable"),
+            installer.index('& $NpmExe rebuild "@vscode/ripgrep"'),
+        )
+
     def test_url_policy(self):
         self.assertEqual(
             "https://mesh.example/cap/mcp",
