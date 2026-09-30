@@ -1,10 +1,28 @@
+export const DEFAULT_WORKBRIDGE_PROCESS_CONCURRENCY = 4;
+export const MAX_WORKBRIDGE_PROCESS_CONCURRENCY = 32;
+
+export function resolveWorkBridgeProcessConcurrency(
+  raw = process.env.WORKBRIDGE_EXECUTION_CAPACITY
+): number {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_WORKBRIDGE_PROCESS_CONCURRENCY;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_WORKBRIDGE_PROCESS_CONCURRENCY) {
+    throw new Error(
+      `WORKBRIDGE_EXECUTION_CAPACITY must be an integer between 1 and ${MAX_WORKBRIDGE_PROCESS_CONCURRENCY}`
+    );
+  }
+  return value;
+}
+
 export class ProcessAdmissionGate {
   private active = 0;
   private readonly waiters: Array<() => void> = [];
 
-  constructor(private readonly maxConcurrent = 4) {
-    if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1) {
-      throw new Error('maxConcurrent must be a positive integer');
+  constructor(private readonly maxConcurrent = DEFAULT_WORKBRIDGE_PROCESS_CONCURRENCY) {
+    if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > MAX_WORKBRIDGE_PROCESS_CONCURRENCY) {
+      throw new Error(`maxConcurrent must be an integer between 1 and ${MAX_WORKBRIDGE_PROCESS_CONCURRENCY}`);
     }
   }
 
@@ -32,4 +50,6 @@ export class ProcessAdmissionGate {
   }
 }
 
-export const workbridgeProcessAdmission = new ProcessAdmissionGate(4);
+export const workbridgeProcessAdmission = new ProcessAdmissionGate(
+  resolveWorkBridgeProcessConcurrency()
+);

@@ -1,0 +1,82 @@
+﻿{
+    "schema":  "WORKBRIDGE_CANARY_STRESS_V1",
+    "device":  "lappy-v2-canary",
+    "count":  8,
+    "sleep_ms":  2000,
+    "success":  8,
+    "failed":  0,
+    "peak":  {
+                 "upstream_active":  9,
+                 "upstream_queued":  0,
+                 "execution_active":  9,
+                 "execution_queued":  0,
+                 "samples":  96
+             },
+    "p50_ms":  2859,
+    "p95_ms":  3375,
+    "max_ms":  3375,
+    "after":  {
+                  "upstream_active":  1,
+                  "upstream_queued":  0,
+                  "execution_active":  1,
+                  "execution_queued":  0
+              },
+    "results":  [
+                    {
+                        "id":  1,
+                        "ok":  true,
+                        "client_ms":  2735,
+                        "terminal_ms":  2557,
+                        "error":  null
+                    },
+                    {
+                        "id":  2,
+                        "ok":  true,
+                        "client_ms":  2595,
+                        "terminal_ms":  2425,
+                        "error":  null
+                    },
+                    {
+                        "id":  3,
+                        "ok":  true,
+                        "client_ms":  3375,
+                        "terminal_ms":  3147,
+                        "error":  null
+                    },
+                    {
+                        "id":  4,
+                        "ok":  true,
+                        "client_ms":  2989,
+                        "terminal_ms":  2788,
+                        "error":  null
+                    },
+                    {
+                        "id":  5,
+                        "ok":  true,
+                        "client_ms":  2859,
+                        "terminal_ms":  2645,
+                        "error":  null
+                    },
+                    {
+                        "id":  6,
+                        "ok":  true,
+                        "client_ms":  3120,
+                        "terminal_ms":  2929,
+                        "error":  null
+                    },
+                    {
+                        "id":  7,
+                        "ok":  true,
+                        "client_ms":  3239,
+                        "terminal_ms":  3004,
+                        "error":  null
+                    },
+                    {
+                        "id":  8,
+                        "ok":  true,
+                        "client_ms":  2298,
+                        "terminal_ms":  2272,
+                        "error":  null
+                    }
+                ]
+}

@@ -93,6 +93,33 @@ jobs:
       - name: Install exact upstream dependencies without lifecycle telemetry
         working-directory: upstream/DesktopCommanderMCP
         run: npm ci --ignore-scripts
+      - name: Prime pinned ripgrep download cache on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $packageVersion = "1.17.0"
+          $releaseVersion = "v15.0.0"
+          $assetName = "ripgrep-$releaseVersion-x86_64-pc-windows-msvc.zip"
+          $expectedSha256 = "5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932"
+          $cacheDir = Join-Path ([IO.Path]::GetTempPath()) "vscode-ripgrep-cache-$packageVersion"
+          $assetPath = Join-Path $cacheDir $assetName
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          if (Test-Path -LiteralPath $assetPath -PathType Leaf) {
+            $cachedSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $assetPath).Hash.ToLowerInvariant()
+            if ($cachedSha256 -ne $expectedSha256) {
+              Remove-Item -LiteralPath $assetPath -Force
+            }
+          }
+          if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+            $downloadPath = "$assetPath.download"
+            Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/microsoft/ripgrep-prebuilt/releases/download/$releaseVersion/$assetName" -OutFile $downloadPath
+            $downloadSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $downloadPath).Hash.ToLowerInvariant()
+            if ($downloadSha256 -ne $expectedSha256) {
+              throw "ripgrep bootstrap hash mismatch: expected $expectedSha256 got $downloadSha256"
+            }
+            Move-Item -LiteralPath $downloadPath -Destination $assetPath -Force
+          }
+
       - name: Run upstream functional ripgrep rebuild only
         working-directory: upstream/DesktopCommanderMCP
         run: npm rebuild @vscode/ripgrep
@@ -104,6 +131,17 @@ jobs:
         run: node dist/npm-scripts/verify-ripgrep.js
       - name: Execute exact upstream Desktop Commander MCP surface
         run: node scripts/Test-DesktopCommanderDuplicate.mjs
+
+      - name: Apply and qualify WorkBridge Desktop Commander process overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp overlays/desktop-commander/src/terminal-manager.ts upstream/DesktopCommanderMCP/src/terminal-manager.ts
+          cp overlays/desktop-commander/src/workbridge-process-admission.ts upstream/DesktopCommanderMCP/src/workbridge-process-admission.ts
+          cp overlays/desktop-commander/test/test-workbridge-process-concurrency.js upstream/DesktopCommanderMCP/test/test-workbridge-process-concurrency.js
+          cd upstream/DesktopCommanderMCP
+          npm run build
+          node test/test-workbridge-process-concurrency.js
 
 
   windows-gitless-desktop-commander:
@@ -146,6 +184,18 @@ jobs:
           }
           if ($manifest.unrestricted_command_string_shell -ne $true) {
             throw "installed duplicate lost unrestricted command-string declaration"
+          }
+          if ($manifest.workbridge_process_concurrency_default -ne 4) {
+            throw "installed duplicate process-concurrency default mismatch"
+          }
+          if ($manifest.workbridge_process_concurrency_max -ne 32) {
+            throw "installed duplicate process-concurrency maximum mismatch"
+          }
+          if ($manifest.workbridge_process_concurrency_env -ne "WORKBRIDGE_EXECUTION_CAPACITY") {
+            throw "installed duplicate process-concurrency environment binding mismatch"
+          }
+          if ($manifest.workbridge_overlay -ne "bounded-process-concurrency-v2") {
+            throw "installed duplicate overlay identity mismatch"
           }
 
           $env:DESKTOP_COMMANDER_ROOT = $installRoot

@@ -1,0 +1,474 @@
+﻿{
+    "schema":  "WORKBRIDGE_CANARY_STRESS_V1",
+    "device":  "lappy-v2-canary",
+    "count":  64,
+    "sleep_ms":  2000,
+    "success":  64,
+    "failed":  0,
+    "peak":  {
+                 "upstream_active":  64,
+                 "upstream_queued":  0,
+                 "execution_active":  8,
+                 "execution_queued":  56,
+                 "samples":  379
+             },
+    "p50_ms":  12424,
+    "p95_ms":  21252,
+    "max_ms":  22063,
+    "after":  {
+                  "upstream_active":  0,
+                  "upstream_queued":  0,
+                  "execution_active":  0,
+                  "execution_queued":  0
+              },
+    "results":  [
+                    {
+                        "id":  1,
+                        "ok":  true,
+                        "client_ms":  7733,
+                        "terminal_ms":  2859,
+                        "error":  null
+                    },
+                    {
+                        "id":  2,
+                        "ok":  true,
+                        "client_ms":  9988,
+                        "terminal_ms":  2628,
+                        "error":  null
+                    },
+                    {
+                        "id":  3,
+                        "ok":  true,
+                        "client_ms":  3896,
+                        "terminal_ms":  3247,
+                        "error":  null
+                    },
+                    {
+                        "id":  4,
+                        "ok":  true,
+                        "client_ms":  14603,
+                        "terminal_ms":  2320,
+                        "error":  null
+                    },
+                    {
+                        "id":  5,
+                        "ok":  true,
+                        "client_ms":  2312,
+                        "terminal_ms":  2297,
+                        "error":  null
+                    },
+                    {
+                        "id":  6,
+                        "ok":  true,
+                        "client_ms":  13781,
+                        "terminal_ms":  2510,
+                        "error":  null
+                    },
+                    {
+                        "id":  7,
+                        "ok":  true,
+                        "client_ms":  4730,
+                        "terminal_ms":  2275,
+                        "error":  null
+                    },
+                    {
+                        "id":  8,
+                        "ok":  true,
+                        "client_ms":  20000,
+                        "terminal_ms":  2266,
+                        "error":  null
+                    },
+                    {
+                        "id":  9,
+                        "ok":  true,
+                        "client_ms":  19421,
+                        "terminal_ms":  2264,
+                        "error":  null
+                    },
+                    {
+                        "id":  10,
+                        "ok":  true,
+                        "client_ms":  7165,
+                        "terminal_ms":  3102,
+                        "error":  null
+                    },
+                    {
+                        "id":  11,
+                        "ok":  true,
+                        "client_ms":  16464,
+                        "terminal_ms":  2272,
+                        "error":  null
+                    },
+                    {
+                        "id":  12,
+                        "ok":  true,
+                        "client_ms":  9126,
+                        "terminal_ms":  2417,
+                        "error":  null
+                    },
+                    {
+                        "id":  13,
+                        "ok":  true,
+                        "client_ms":  11548,
+                        "terminal_ms":  2281,
+                        "error":  null
+                    },
+                    {
+                        "id":  14,
+                        "ok":  true,
+                        "client_ms":  17589,
+                        "terminal_ms":  2275,
+                        "error":  null
+                    },
+                    {
+                        "id":  15,
+                        "ok":  true,
+                        "client_ms":  17025,
+                        "terminal_ms":  2282,
+                        "error":  null
+                    },
+                    {
+                        "id":  16,
+                        "ok":  true,
+                        "client_ms":  7868,
+                        "terminal_ms":  2414,
+                        "error":  null
+                    },
+                    {
+                        "id":  17,
+                        "ok":  true,
+                        "client_ms":  2582,
+                        "terminal_ms":  2546,
+                        "error":  null
+                    },
+                    {
+                        "id":  18,
+                        "ok":  true,
+                        "client_ms":  8459,
+                        "terminal_ms":  2599,
+                        "error":  null
+                    },
+                    {
+                        "id":  19,
+                        "ok":  true,
+                        "client_ms":  16172,
+                        "terminal_ms":  2257,
+                        "error":  null
+                    },
+                    {
+                        "id":  20,
+                        "ok":  true,
+                        "client_ms":  21252,
+                        "terminal_ms":  2257,
+                        "error":  null
+                    },
+                    {
+                        "id":  21,
+                        "ok":  true,
+                        "client_ms":  15913,
+                        "terminal_ms":  2256,
+                        "error":  null
+                    },
+                    {
+                        "id":  22,
+                        "ok":  true,
+                        "client_ms":  18301,
+                        "terminal_ms":  2257,
+                        "error":  null
+                    },
+                    {
+                        "id":  23,
+                        "ok":  true,
+                        "client_ms":  21540,
+                        "terminal_ms":  2255,
+                        "error":  null
+                    },
+                    {
+                        "id":  24,
+                        "ok":  true,
+                        "client_ms":  12752,
+                        "terminal_ms":  2303,
+                        "error":  null
+                    },
+                    {
+                        "id":  25,
+                        "ok":  true,
+                        "client_ms":  12102,
+                        "terminal_ms":  2287,
+                        "error":  null
+                    },
+                    {
+                        "id":  26,
+                        "ok":  true,
+                        "client_ms":  19148,
+                        "terminal_ms":  2258,
+                        "error":  null
+                    },
+                    {
+                        "id":  27,
+                        "ok":  true,
+                        "client_ms":  14881,
+                        "terminal_ms":  2266,
+                        "error":  null
+                    },
+                    {
+                        "id":  28,
+                        "ok":  true,
+                        "client_ms":  15484,
+                        "terminal_ms":  2245,
+                        "error":  null
+                    },
+                    {
+                        "id":  29,
+                        "ok":  true,
+                        "client_ms":  3757,
+                        "terminal_ms":  3121,
+                        "error":  null
+                    },
+                    {
+                        "id":  30,
+                        "ok":  true,
+                        "client_ms":  10982,
+                        "terminal_ms":  2375,
+                        "error":  null
+                    },
+                    {
+                        "id":  31,
+                        "ok":  true,
+                        "client_ms":  10631,
+                        "terminal_ms":  2605,
+                        "error":  null
+                    },
+                    {
+                        "id":  32,
+                        "ok":  true,
+                        "client_ms":  14332,
+                        "terminal_ms":  2377,
+                        "error":  null
+                    },
+                    {
+                        "id":  33,
+                        "ok":  true,
+                        "client_ms":  8333,
+                        "terminal_ms":  2460,
+                        "error":  null
+                    },
+                    {
+                        "id":  34,
+                        "ok":  true,
+                        "client_ms":  20314,
+                        "terminal_ms":  2248,
+                        "error":  null
+                    },
+                    {
+                        "id":  35,
+                        "ok":  true,
+                        "client_ms":  16744,
+                        "terminal_ms":  2278,
+                        "error":  null
+                    },
+                    {
+                        "id":  36,
+                        "ok":  true,
+                        "client_ms":  13525,
+                        "terminal_ms":  2264,
+                        "error":  null
+                    },
+                    {
+                        "id":  37,
+                        "ok":  true,
+                        "client_ms":  11121,
+                        "terminal_ms":  2501,
+                        "error":  null
+                    },
+                    {
+                        "id":  38,
+                        "ok":  true,
+                        "client_ms":  9698,
+                        "terminal_ms":  2348,
+                        "error":  null
+                    },
+                    {
+                        "id":  39,
+                        "ok":  true,
+                        "client_ms":  18574,
+                        "terminal_ms":  2266,
+                        "error":  null
+                    },
+                    {
+                        "id":  40,
+                        "ok":  true,
+                        "client_ms":  5592,
+                        "terminal_ms":  2577,
+                        "error":  null
+                    },
+                    {
+                        "id":  41,
+                        "ok":  true,
+                        "client_ms":  3612,
+                        "terminal_ms":  2996,
+                        "error":  null
+                    },
+                    {
+                        "id":  42,
+                        "ok":  true,
+                        "client_ms":  2710,
+                        "terminal_ms":  2663,
+                        "error":  null
+                    },
+                    {
+                        "id":  43,
+                        "ok":  true,
+                        "client_ms":  12424,
+                        "terminal_ms":  2296,
+                        "error":  null
+                    },
+                    {
+                        "id":  44,
+                        "ok":  true,
+                        "client_ms":  13090,
+                        "terminal_ms":  2302,
+                        "error":  null
+                    },
+                    {
+                        "id":  45,
+                        "ok":  true,
+                        "client_ms":  14055,
+                        "terminal_ms":  2370,
+                        "error":  null
+                    },
+                    {
+                        "id":  46,
+                        "ok":  true,
+                        "client_ms":  8998,
+                        "terminal_ms":  2295,
+                        "error":  null
+                    },
+                    {
+                        "id":  47,
+                        "ok":  true,
+                        "client_ms":  15179,
+                        "terminal_ms":  2260,
+                        "error":  null
+                    },
+                    {
+                        "id":  48,
+                        "ok":  true,
+                        "client_ms":  10318,
+                        "terminal_ms":  2307,
+                        "error":  null
+                    },
+                    {
+                        "id":  49,
+                        "ok":  true,
+                        "client_ms":  6556,
+                        "terminal_ms":  2515,
+                        "error":  null
+                    },
+                    {
+                        "id":  50,
+                        "ok":  true,
+                        "client_ms":  17294,
+                        "terminal_ms":  2277,
+                        "error":  null
+                    },
+                    {
+                        "id":  51,
+                        "ok":  true,
+                        "client_ms":  18861,
+                        "terminal_ms":  2256,
+                        "error":  null
+                    },
+                    {
+                        "id":  52,
+                        "ok":  true,
+                        "client_ms":  11794,
+                        "terminal_ms":  2543,
+                        "error":  null
+                    },
+                    {
+                        "id":  53,
+                        "ok":  true,
+                        "client_ms":  6418,
+                        "terminal_ms":  2368,
+                        "error":  null
+                    },
+                    {
+                        "id":  54,
+                        "ok":  true,
+                        "client_ms":  5312,
+                        "terminal_ms":  2309,
+                        "error":  null
+                    },
+                    {
+                        "id":  55,
+                        "ok":  true,
+                        "client_ms":  7017,
+                        "terminal_ms":  2947,
+                        "error":  null
+                    },
+                    {
+                        "id":  56,
+                        "ok":  true,
+                        "client_ms":  17922,
+                        "terminal_ms":  2273,
+                        "error":  null
+                    },
+                    {
+                        "id":  57,
+                        "ok":  true,
+                        "client_ms":  19671,
+                        "terminal_ms":  2254,
+                        "error":  null
+                    },
+                    {
+                        "id":  58,
+                        "ok":  true,
+                        "client_ms":  20988,
+                        "terminal_ms":  2271,
+                        "error":  null
+                    },
+                    {
+                        "id":  59,
+                        "ok":  true,
+                        "client_ms":  20696,
+                        "terminal_ms":  2258,
+                        "error":  null
+                    },
+                    {
+                        "id":  60,
+                        "ok":  true,
+                        "client_ms":  3474,
+                        "terminal_ms":  2846,
+                        "error":  null
+                    },
+                    {
+                        "id":  61,
+                        "ok":  true,
+                        "client_ms":  2840,
+                        "terminal_ms":  2782,
+                        "error":  null
+                    },
+                    {
+                        "id":  62,
+                        "ok":  true,
+                        "client_ms":  21813,
+                        "terminal_ms":  2261,
+                        "error":  null
+                    },
+                    {
+                        "id":  63,
+                        "ok":  true,
+                        "client_ms":  5727,
+                        "terminal_ms":  2702,
+                        "error":  null
+                    },
+                    {
+                        "id":  64,
+                        "ok":  true,
+                        "client_ms":  22063,
+                        "terminal_ms":  2256,
+                        "error":  null
+                    }
+                ]
+}

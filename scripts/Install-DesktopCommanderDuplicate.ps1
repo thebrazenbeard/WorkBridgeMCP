@@ -219,8 +219,10 @@ try {
             entrypoint_sha256 = $entryHash
             mcp_args = @("dist\index.js", "--no-onboarding")
             unrestricted_command_string_shell = $true
-            workbridge_process_concurrency = 4
-            workbridge_overlay = "bounded-process-concurrency-v1"
+            workbridge_process_concurrency_default = 4
+            workbridge_process_concurrency_max = 32
+            workbridge_process_concurrency_env = "WORKBRIDGE_EXECUTION_CAPACITY"
+            workbridge_overlay = "bounded-process-concurrency-v2"
         }
         $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 "workbridge-desktop-commander.manifest.json"
     }
