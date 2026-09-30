@@ -143,3 +143,10 @@ The candidate acceptance probe passed with `WORKBRIDGE_EXECUTION_CAPACITY=8`, re
 An isolated eight-way real-process probe against the scratch candidate used eight simultaneous PowerShell commands, each performing a two-second sleep and emitting a unique marker. All eight markers were observed, all calls exited via `process_exit`, and the full eight-call wall clock was 3,644 ms. Individual terminal lifetimes were 2,558–3,565 ms. This demonstrates eight overlapping real process lifetimes in the candidate and eliminates the V1 fixed-four two-wave behavior under the same class of workload.
 
 This remains candidate qualification, not live deployment verification.
+
+
+## CI qualification note
+
+The first PR workflow attempt exposed an unrelated Windows-only dependency bootstrap failure before the WorkBridge overlay step: `@vscode/ripgrep` attempted unauthenticated release discovery through the GitHub API and received HTTP 403.
+
+The supported WorkBridge duplicate installer already avoids that failure mode by downloading the exact pinned v15.0.0 Windows asset directly and verifying SHA-256 before `npm rebuild`. The PR workflow now primes the same verified cache before the Windows rebuild instead of weakening or skipping Windows qualification.
