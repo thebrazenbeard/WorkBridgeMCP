@@ -230,3 +230,32 @@ It verifies old/new manifest hashes, candidate manifest semantics and packaged h
 Its preflight correctly refused cutover while unrelated active Desktop Commander sessions existed. A later Commander health observation also showed a separate 32-context workload in flight on the original route. Therefore no live cutover was attempted during those collisions.
 
 This is a deliberate non-collision hold, not a failed V2 qualification.
+
+
+## Authorized live cutover attempt — rollback defect found
+
+Patrick explicitly authorized termination of the four unrelated long-running retrieval PIDs and the exact V1 -> V2 live cutover on Lappy. The four previously identified retrieval sessions were terminated and Desktop Commander reported no active sessions before cutover.
+
+The prepared cutover was launched detached so it could survive the old WorkBridge device route shutting down. The attempt did **not** replace the live V1 duplicate. The result file recorded:
+
+- status: `ROLLBACK_EXCEPTION`;
+- primary failure: Windows refused to rename `C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP` because the directory was in use;
+- rollback hit the same rename failure.
+
+Out-of-band VeraPort readback after the failed attempt established:
+
+- live manifest still reports `bounded-process-concurrency-v1` and fixed process concurrency 4;
+- live manifest SHA-256 remains `0e2e80ae5acd26c04e0adb5ac21b453edbe5b7004505998d2692b7b948ae1e2f`;
+- `Start-WorkBridgeCommander.ps1` still contains the old V1 trusted manifest hash;
+- V2 candidate directory `C:\ProgramData\WorkBridgeMCP\DesktopCommanderMCP.v2.a135586` remains present and intact;
+- Commander server startup log remains bound to `127.0.0.1:8787` at 8 execution / 64 upstream capacity;
+- tunnel health URL file remains present;
+- the WorkBridge device agent stopped when the old Desktop Commander child exited and did not recover because rollback failed before `Start-Device`.
+
+The direct cause of the rename failure is a cutover-script design defect: the detached PowerShell process inherited a current working directory inside the live Desktop Commander install tree. Windows therefore held that directory in-use even after the old Desktop Commander process exited.
+
+> **HOSTILE REVIEWER:** A rollback script that shares a working directory with the tree it must rename is not rollback-safe.
+
+**ACCEPTED.** Future cutover logic must move to a neutral working directory before any process stop or install-root rename, and the recovery channel must be independent of the route being replaced.
+
+No credential, launcher trust anchor, server configuration, tunnel configuration, or V2 candidate file was changed by this failed cutover. The live WorkBridge Commander tool route is currently unavailable only because its device agent is stopped; the repository fix and side-by-side V2 candidate remain valid.
