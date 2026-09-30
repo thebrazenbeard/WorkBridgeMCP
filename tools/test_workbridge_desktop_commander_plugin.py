@@ -71,6 +71,26 @@ class PluginContractTests(unittest.TestCase):
             self.assertFalse((out / "mcp.template.json").exists())
             self.assertTrue((out / "tool-contract.json").is_file())
 
+    def test_duplicate_installer_applies_process_overlay_before_build(self):
+        installer = (
+            ROOT / "scripts" / "Install-DesktopCommanderDuplicate.ps1"
+        ).read_text(encoding="utf-8")
+        for filename in (
+            "terminal-manager.ts",
+            "workbridge-process-admission.ts",
+            "test-workbridge-process-concurrency.js",
+        ):
+            self.assertIn(filename, installer)
+        copy_statement = (
+            "Copy-Item -LiteralPath $overlaySource "
+            "-Destination $overlayTarget -Force"
+        )
+        self.assertIn(copy_statement, installer)
+        self.assertLess(
+            installer.index(copy_statement),
+            installer.index("& $NpmExe run build"),
+        )
+
     def test_url_policy(self):
         self.assertEqual(
             "https://mesh.example/cap/mcp",

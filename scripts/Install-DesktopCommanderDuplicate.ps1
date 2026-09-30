@@ -48,6 +48,8 @@ New-Item -ItemType Directory -Force -Path $parent | Out-Null
 $staging = Join-Path $parent ("DesktopCommanderMCP.staging." + [Guid]::NewGuid().ToString("N"))
 $backup = $null
 $archiveStage = $null
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$overlayRoot = Join-Path $repoRoot "overlays\desktop-commander"
 
 try {
     if ($git) {
@@ -79,6 +81,21 @@ try {
             throw "unexpected DesktopCommander archive layout"
         }
         Move-Item -LiteralPath $dirs[0].FullName -Destination $staging
+    }
+
+    $overlayFiles = @(
+        "src\terminal-manager.ts",
+        "src\workbridge-process-admission.ts",
+        "test\test-workbridge-process-concurrency.js"
+    )
+    foreach ($relative in $overlayFiles) {
+        $overlaySource = Join-Path $overlayRoot $relative
+        if (-not (Test-Path -LiteralPath $overlaySource -PathType Leaf)) {
+            throw "WorkBridge overlay source missing: $overlaySource"
+        }
+        $overlayTarget = Join-Path $staging $relative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $overlayTarget) | Out-Null
+        Copy-Item -LiteralPath $overlaySource -Destination $overlayTarget -Force
     }
 
     Push-Location $staging
