@@ -1,0 +1,145 @@
+# WorkBridge Commander / Desktop Commander process-capacity trace — 2026-09-30
+
+Status: LIVE OBSERVATION + SOURCE-BOUND ROOT CAUSE; FIX CANDIDATE NOT DEPLOYED
+
+## Live subject
+
+The connected WorkBridge Commander service on Lappy reported one device, generation 1, `executionCapacityPerDevice=8`, and `upstreamContextCapacity=64`. The current process environment exposes `WORKBRIDGE_EXECUTION_CAPACITY=8` and `WORKBRIDGE_UPSTREAM_CONTEXT_CAPACITY=64`. The Commander device agent launches the pinned Desktop Commander duplicate with the inherited process environment.
+
+The installed duplicate is pinned to upstream DesktopCommanderMCP commit `550a0b3e31da18b7cf25e87ed840e3d953b6da42`, package version 0.2.51, plus the WorkBridge-owned bounded-process overlay.
+
+No service restart, package replacement, token change, or permission change was performed during this trace.
+
+## Full saturation precursor
+
+The preceding full live saturation test established:
+
+- 64 / 64 upstream work contexts simultaneously active;
+- 8 / 8 Commander execution lanes simultaneously active;
+- 56 effect-bearing requests queued behind those eight lanes;
+- 64 / 64 requests completed successfully;
+- terminal state drained to zero active / zero queued.
+
+That test showed regular sub-waves inconsistent with the advertised eight-lane execution capacity, motivating stage tracing.
+
+## Stage-trace method
+
+A direct loopback MCP harness tagged each `start_process` request with a unique marker and requested Desktop Commander's existing `verbose_timing` output. The harness correlated those results with the duplicate's local `tool-history.jsonl` completion timestamp and duration.
+
+Derived intervals:
+
+1. client request start -> approximate Desktop Commander tool-handler receipt;
+2. Desktop Commander whole-tool duration;
+3. Desktop Commander terminal/process duration from `verbose_timing`;
+4. pre-terminal wrapper/admission time = whole-tool duration minus terminal duration;
+5. Desktop Commander completion -> client response.
+
+This uses existing runtime telemetry and does not patch or restart the live service.
+
+## One-context baseline
+
+For a two-second PowerShell workload:
+
+- client end-to-end: 2,304 ms;
+- Desktop Commander whole-tool: 2,295 ms;
+- terminal/process lifetime: 2,285 ms;
+- approximate client-to-Desktop receipt: 6 ms;
+- pre-terminal wrapper overhead: 10 ms;
+- Desktop-complete-to-client: 3 ms.
+
+At no load, the Commander bridge is not a material source of latency.
+
+## Eight-context result
+
+Eight simultaneous two-second PowerShell calls all reached Desktop Commander in roughly 170 ms, but only four immediately entered the terminal/process stage.
+
+Fast half pre-terminal overhead: approximately 20–43 ms.
+Slow half pre-terminal overhead: approximately 2,180–2,898 ms.
+
+An immediate-output discriminator confirmed the delay occurs before Desktop Commander's terminal timer begins, not while waiting for the PowerShell process to start emitting output.
+
+Zero-workload PowerShell and zero-workload `cmd.exe` tests retained the same four-fast / four-delayed shape, ruling out the two-second workload and PowerShell specifically.
+
+A direct Node `child_process.spawn()` benchmark outside Desktop Commander launched eight `cmd.exe` children in approximately 79 ms total and eight PowerShell children in approximately 378 ms total, with individual synchronous `spawn()` calls approximately 3–12 ms. This falsified generic Windows/Node process creation as the multi-second cause.
+
+## Sixty-four-context stage trace
+
+For 64 simultaneous two-second process calls:
+
+- 64 / 64 succeeded;
+- peak upstream active: 64;
+- peak execution active: 8;
+- peak execution queued: 56;
+- median client total: 19,422 ms;
+- median client-to-Desktop receipt / Commander queue delay: 14,955 ms;
+- median Desktop whole-tool duration: 4,422 ms;
+- median pre-terminal wrapper overhead: 2,145 ms;
+- median terminal/process lifetime: 2,276 ms;
+- median Desktop-complete-to-client return: approximately 1 ms.
+
+59 of 64 calls spent 1.5–3.0 seconds in the pre-terminal portion; only four were below 250 ms.
+
+A telemetry-suppressed `origin=ui` experiment sharply reduced eight-way no-op latency, so Desktop Commander telemetry contributes under moderate concurrency. It did not remove the approximately 2.3-second pre-terminal delay under full 64-context saturation, so telemetry is not the root capacity limiter.
+
+## Root cause from installed source
+
+The installed WorkBridge-owned overlay contains:
+
+```ts
+export const workbridgeProcessAdmission = new ProcessAdmissionGate(4);
+```
+
+and the WorkBridge-derived `terminal-manager.ts` wraps the complete `executeCommand()` lifecycle in:
+
+```ts
+return workbridgeProcessAdmission.run(async () => {
+  // ... shell resolution, spawn, process wait, completion ...
+});
+```
+
+Therefore WorkBridge Commander admits eight workstation effects, but the qualified Desktop Commander duplicate admits only four process lifetimes. Requests five through eight wait inside the duplicate before the terminal timing interval begins. The hidden four-slot gate exactly explains the observed two sub-waves of four.
+
+The fixed-four gate is not present in pinned upstream DesktopCommanderMCP; it is a WorkBridge overlay introduced by the earlier bounded-process V1 design.
+
+## Repair bound
+
+The V2 source candidate preserves the original standalone default of four but resolves the inner gate from `WORKBRIDGE_EXECUTION_CAPACITY` when explicitly supplied. The current Commander route already supplies 8 through inherited environment. Allowed values remain bounded 1 through 32; malformed or out-of-range values fail closed.
+
+This source result is not deployment evidence. The installed live duplicate remains at the V1 fixed-four gate until an explicitly authorized rebuild/install/restart occurs.
+
+## Hostile review
+
+> **HOSTILE REVIEWER:** Matching the inner gate to eight could merely move the bottleneck downstream and increase resource pressure.
+
+**ACCEPTED.** V2 removes a proven artificial mismatch; it does not prove eight concurrent process lifetimes are resource-safe or lower-latency on every workload. A qualified candidate must undergo an isolated eight-way process test and, only after an authorized installation, the live 8/64 saturation test again.
+
+> **HOSTILE REVIEWER:** The `origin=ui` experiment suppresses telemetry and is not a valid production optimization.
+
+**ACCEPTED.** It was used only as a diagnostic A/B. V2 does not alter origin semantics or suppress telemetry.
+
+> **HOSTILE REVIEWER:** The environment variable is an implicit cross-repository contract.
+
+**PARTIALLY ACCEPTED.** Commander already consumes and exposes `WORKBRIDGE_EXECUTION_CAPACITY`, and its device agent inherits the process environment into the duplicate. V2 records this binding in the duplicate manifest and CI. Future route changes must preserve or deliberately revise that contract.
+
+
+
+## V2 candidate qualification
+
+The supported Desktop Commander duplicate installer was run against a scratch install root, not the live `C:\ProgramData` installation, using the V2 overlay and `-RunTests`.
+
+The installer completed successfully. Because the installer moves the staging tree into the requested install root only after its focused overlay test and full upstream Desktop Commander test suite succeed, the resulting scratch candidate establishes that both gates passed for the exact pinned upstream source plus V2 overlay.
+
+The scratch manifest records:
+
+- upstream commit `550a0b3e31da18b7cf25e87ed840e3d953b6da42`;
+- upstream version `0.2.51`;
+- `workbridge_process_concurrency_default=4`;
+- `workbridge_process_concurrency_max=32`;
+- `workbridge_process_concurrency_env=WORKBRIDGE_EXECUTION_CAPACITY`;
+- overlay `bounded-process-concurrency-v2`.
+
+The candidate acceptance probe passed with `WORKBRIDGE_EXECUTION_CAPACITY=8`, returning Desktop Commander 0.2.51 with the expected unrestricted command-string tool surface.
+
+An isolated eight-way real-process probe against the scratch candidate used eight simultaneous PowerShell commands, each performing a two-second sleep and emitting a unique marker. All eight markers were observed, all calls exited via `process_exit`, and the full eight-call wall clock was 3,644 ms. Individual terminal lifetimes were 2,558–3,565 ms. This demonstrates eight overlapping real process lifetimes in the candidate and eliminates the V1 fixed-four two-wave behavior under the same class of workload.
+
+This remains candidate qualification, not live deployment verification.
