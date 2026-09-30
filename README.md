@@ -40,9 +40,10 @@ identity verification:
 
 Process tools accept a configured **grant name**, not an executable path from the model.
 Every enabled executable is pinned by SHA-256 and rechecked immediately before and after
-execution. Arguments are passed directly to the executable; WorkBridge does not insert a
-shell. Child processes receive a reduced environment rather than the server's full
-environment.
+execution. Caller-supplied arguments are denied by default for each grant and require
+explicit `allow_arguments=true` authority. When enabled, arguments are passed directly to
+the executable; WorkBridge does not insert a shell. Child processes receive a reduced
+environment rather than the server's full environment.
 
 Filesystem operations use Go 1.25.12 `os.Root` handles so operations execute relative to
 already-open admitted roots rather than by validating one path string and later reopening
@@ -84,6 +85,7 @@ Important rules:
 - writes exist only when `write_roots` is populated;
 - process execution exists only when explicitly enabled;
 - enabled executables require a stable name, absolute path, and lowercase SHA-256;
+- caller-supplied executable arguments require per-grant `allow_arguments=true`; omission is deny-by-default;
 - process working directories must stay inside configured process roots;
 - file, directory, process-output, runtime, argument count, and argument bytes are bounded.
 
