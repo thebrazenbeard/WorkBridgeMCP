@@ -26,4 +26,36 @@ assert.equal(fifthStarted, false, 'fifth process started before capacity was rel
 releaseFirst();
 await Promise.all(jobs);
 assert.equal(fifthStarted, true, 'fifth process never started after capacity was released');
+
+// Releasing a slot must reserve it for the oldest waiter. A newcomer arriving
+// before that waiter's promise continuation must not overtake it or exceed the cap.
+const handoff = new ProcessAdmissionGate(1);
+const releaseOwner = await handoff.acquire();
+const waitingSecond = handoff.acquire();
+releaseOwner();
+
+const admissionOrder = [];
+const waitingThird = handoff.acquire().then(release => {
+  admissionOrder.push('third');
+  return release;
+});
+const releaseSecond = await waitingSecond;
+admissionOrder.push('second');
+await new Promise(resolve => setImmediate(resolve));
+assert.deepEqual(admissionOrder, ['second'], 'newcomer barged ahead of reserved waiter');
+
+releaseSecond();
+const releaseThird = await waitingThird;
+assert.deepEqual(admissionOrder, ['second', 'third'], 'waiter handoff order changed');
+releaseOwner(); // Double-release must not affect the new owner.
+releaseSecond();
+releaseThird();
+
+// A rejected operation must still return its slot for the next operation.
+const afterFailure = new ProcessAdmissionGate(1);
+await assert.rejects(afterFailure.run(async () => {
+  throw new Error('intentional test failure');
+}), /intentional test failure/);
+const releaseAfterFailure = await afterFailure.acquire();
+releaseAfterFailure();
 console.log('WORKBRIDGE_PROCESS_CONCURRENCY_V1 PASS');
