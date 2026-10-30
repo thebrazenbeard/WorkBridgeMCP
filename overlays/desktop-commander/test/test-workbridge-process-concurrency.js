@@ -91,6 +91,7 @@ releaseAfterFailure();
 const children = [];
 const liveChildren = new ProcessAdmissionGate(4);
 let fifthChildStarted = false;
+let pendingFifthChild = null;
 function startPersistentChild() {
   const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -106,7 +107,7 @@ try {
   assert.ok(firstFour.every(child => child.pid && child.exitCode === null),
     'four directly spawned children must remain alive');
 
-  const fifth = spawnWithProcessAdmission(startPersistentChild, liveChildren).then(child => {
+  pendingFifthChild = spawnWithProcessAdmission(startPersistentChild, liveChildren).then(child => {
     fifthChildStarted = true;
     return child;
   });
@@ -116,17 +117,24 @@ try {
   const firstExit = new Promise(resolve => firstFour[0].once('exit', resolve));
   assert.equal(firstFour[0].kill(), true, 'first child should accept termination');
   await within(firstExit, 5000, 'first child did not exit');
-  const fifthChild = await within(fifth, 5000, 'fifth child was not admitted after first exited');
+  const fifthChild = await within(pendingFifthChild, 5000, 'fifth child was not admitted after first exited');
   assert.equal(fifthChildStarted, true);
   assert.ok(fifthChild.pid && fifthChild.exitCode === null);
 } finally {
-  // This regression must never leave children running on a developer or CI host.
-  await Promise.all(children.map(async child => {
+  // Killing the first four releases a permit and may START the queued fifth.
+  // Wait for that admission, then repeat cleanup against a fresh child list.
+  const terminateKnown = () => Promise.all(children.map(async child => {
     if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = new Promise(resolve => child.once('exit', resolve));
     child.kill();
     await within(exited, 5000, 'test child did not terminate');
   }));
+  await terminateKnown();
+  if (pendingFifthChild) {
+    await within(pendingFifthChild.catch(() => null), 5000,
+      'queued child did not settle during test cleanup');
+  }
+  await terminateKnown();
 }
 
 // A synchronous start failure must return its permit immediately.
@@ -157,6 +165,7 @@ if (!sourceMode) {
   const persistentCommand = process.platform === 'win32'
     ? "Write-Output 'READY>'; while ($true) { Start-Sleep -Milliseconds 200 }"
     : "printf 'READY>\\n'; while :; do read -t 1 value || :; done";
+  let pendingFifthResult = null;
   try {
     const firstFour = await within(Promise.all(Array.from({ length: 4 }, () =>
       manager.executeCommand(persistentCommand, 5000, shell))),
@@ -165,7 +174,7 @@ if (!sourceMode) {
       'four prompt-returned PIDs must still have active sessions');
 
     let fifthReturned = false;
-    const fifth = manager.executeCommand(persistentCommand, 5000, shell).then(result => {
+    pendingFifthResult = manager.executeCommand(persistentCommand, 5000, shell).then(result => {
       fifthReturned = true;
       return result;
     });
@@ -179,16 +188,22 @@ if (!sourceMode) {
     const firstExit = new Promise(resolve => first.process.once('exit', resolve));
     assert.equal(first.process.kill(), true);
     await within(firstExit, 5000, 'first start_process child did not exit');
-    const fifthResult = await within(fifth, 10000, 'fifth start_process failed to obtain released slot');
+    const fifthResult = await within(pendingFifthResult, 10000, 'fifth start_process failed to obtain released slot');
     assert.ok(fifthResult.pid > 0 && manager.getSession(fifthResult.pid));
   } finally {
-    await Promise.all(manager.listActiveSessions().map(async ({ pid }) => {
+    const terminateActive = () => Promise.all(manager.listActiveSessions().map(async ({ pid }) => {
       const session = manager.getSession(pid);
       if (!session) return;
       const exited = new Promise(resolve => session.process.once('exit', resolve));
       session.process.kill();
       await within(exited, 5000, `start_process child ${pid} did not terminate`);
     }));
+    await terminateActive();
+    if (pendingFifthResult) {
+      await within(pendingFifthResult.catch(() => null), 10000,
+        'queued start_process did not settle during test cleanup');
+    }
+    await terminateActive();
   }
 }
 console.log('WORKBRIDGE_PROCESS_CONCURRENCY_V1 PASS');
