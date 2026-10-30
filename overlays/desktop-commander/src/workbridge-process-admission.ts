@@ -10,15 +10,18 @@ export class ProcessAdmissionGate {
 
   async acquire(): Promise<() => void> {
     if (this.active >= this.maxConcurrent) {
+      // The released slot is reserved for this waiter before it resumes.
       await new Promise<void>(resolve => this.waiters.push(resolve));
+    } else {
+      this.active += 1;
     }
-    this.active += 1;
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      this.active -= 1;
-      this.waiters.shift()?.();
+      const next = this.waiters.shift();
+      if (next) next(); // Transfer the occupied slot; newcomers cannot barge.
+      else this.active -= 1;
     };
   }
 
