@@ -151,6 +151,36 @@ try {
         Copy-Item -LiteralPath $overlaySource -Destination $overlayTarget -Force
     }
 
+    # The pinned MCP SDK passes each CallTool handler an extra.signal that is
+    # aborted on request cancellation/connection loss. Bind that signal to the
+    # overlay's request-local admission context without copying upstream's
+    # entire server.ts into this repository. All three exact upstream anchors
+    # must match once or the install fails closed before npm/build/promotion.
+    $serverFile = Join-Path $staging "src\server.ts"
+    $serverText = [IO.File]::ReadAllText($serverFile)
+    $serverPatches = @(
+        @{
+            Find = "import * as handlers from './handlers/index.js';"
+            Replace = "import * as handlers from './handlers/index.js';`nimport { runWithRequestAbort } from './workbridge-process-admission.js';"
+        },
+        @{
+            Find = 'server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest): Promise<ServerResult> => {'
+            Replace = "server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest, extra): Promise<ServerResult> => {`n    return runWithRequestAbort(extra?.signal, async () => {`n    if (extra?.signal?.aborted) throw new Error('request canceled before tool dispatch');"
+        },
+        @{
+            Find = '    return handleCallToolRequest(request);'
+            Replace = "    return handleCallToolRequest(request);`n    });"
+        }
+    )
+    foreach ($change in $serverPatches) {
+        $matches = [regex]::Matches($serverText, [regex]::Escape($change.Find))
+        if ($matches.Count -ne 1) {
+            throw "pinned upstream MCP cancellation anchor mismatch: expected one match, found $($matches.Count)"
+        }
+        $serverText = $serverText.Replace($change.Find, $change.Replace)
+    }
+    [IO.File]::WriteAllText($serverFile, $serverText, [Text.UTF8Encoding]::new($false))
+
     Push-Location $staging
     $originalPath = $env:PATH
     try {

@@ -11,7 +11,7 @@ const sourceMode = process.env.WORKBRIDGE_TEST_SOURCE === '1';
 assert.ok(sourceMode || existsSync(fileURLToPath(distUrl)),
   'compiled overlay missing: run npm build before the installer regression');
 const admissionModule = await import(sourceMode ? sourceUrl : distUrl);
-const { ProcessAdmissionGate, spawnWithProcessAdmission } = admissionModule;
+const { ProcessAdmissionGate, spawnWithProcessAdmission, runWithRequestAbort } = admissionModule;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function within(promise, timeoutMs, message) {
@@ -77,6 +77,76 @@ assert.deepEqual(admissionOrder, ['second', 'third'], 'waiter handoff order chan
 releaseOwner(); // Double-release must not affect the new owner.
 releaseSecond();
 releaseThird();
+
+// An MCP request aborted while queued must never acquire a permit later and
+// launch a stale command when an unrelated child finally exits.
+const cancellationGate = new ProcessAdmissionGate(1);
+const releaseCancellationOwner = await cancellationGate.acquire();
+const cancellation = new AbortController();
+const canceledWaiter = cancellationGate.acquire({ signal: cancellation.signal });
+await delay(10);
+cancellation.abort();
+try {
+  await assert.rejects(within(canceledWaiter, 300,
+    'aborted queued admission was not removed'), error => error?.name === 'ProcessAdmissionCancelledError');
+} finally {
+  releaseCancellationOwner();
+}
+const releaseAfterCancellation = await within(cancellationGate.acquire(), 1000,
+  'canceled queued request retained a permit');
+releaseAfterCancellation();
+
+const cancellationFairness = new ProcessAdmissionGate(1);
+const releaseFairnessOwner = await cancellationFairness.acquire();
+const canceledHead = new AbortController();
+const oldHead = cancellationFairness.acquire({ signal: canceledHead.signal });
+const survivingWaiter = cancellationFairness.acquire();
+canceledHead.abort();
+await assert.rejects(oldHead, error => error?.name === 'ProcessAdmissionCancelledError');
+releaseFairnessOwner();
+const releaseSurvivor = await within(survivingWaiter, 1000,
+  'aborted first waiter blocked the next FIFO waiter');
+releaseSurvivor();
+
+// Abort can race the transfer itself: the promise was resolved as a slot
+// holder, but its continuation has not yet run. That slot must be reclaimed.
+const transferGate = new ProcessAdmissionGate(1);
+const releaseTransferOwner = await transferGate.acquire();
+const transferAbort = new AbortController();
+const transferred = transferGate.acquire({ signal: transferAbort.signal });
+releaseTransferOwner();
+transferAbort.abort();
+await assert.rejects(transferred,
+  error => error?.name === 'ProcessAdmissionCancelledError');
+const releaseAfterTransferAbort = await within(transferGate.acquire(), 1000,
+  'abort after permit transfer leaked occupied slot');
+releaseAfterTransferAbort();
+
+// The MCP server binds SDK extra.signal around its tool handler. A queued
+// spawn must inherit that request-local signal even across async awaits.
+const contextualGate = new ProcessAdmissionGate(1);
+const releaseContextOwner = await contextualGate.acquire();
+const contextualCancellation = new AbortController();
+let contextualSpawned = false;
+const contextualJob = runWithRequestAbort(contextualCancellation.signal, async () => {
+  await delay(5);
+  return spawnWithProcessAdmission(() => {
+    contextualSpawned = true;
+    return spawn(process.execPath, ['-e', 'process.exit(0)']);
+  }, contextualGate);
+});
+await delay(25);
+contextualCancellation.abort();
+try {
+  await assert.rejects(within(contextualJob, 1000, 'contextual abort did not settle'),
+    error => error?.name === 'ProcessAdmissionCancelledError');
+} finally {
+  releaseContextOwner();
+}
+assert.equal(contextualSpawned, false, 'abandoned contextual start_process spawned after cancellation');
+const releaseContextNext = await within(contextualGate.acquire(), 1000,
+  'contextual cancellation leaked admission');
+releaseContextNext();
 
 // A rejected operation must still return its slot for the next operation.
 const afterFailure = new ProcessAdmissionGate(1);
