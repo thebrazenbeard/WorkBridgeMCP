@@ -151,6 +151,57 @@ try {
         Copy-Item -LiteralPath $overlaySource -Destination $overlayTarget -Force
     }
 
+    # The pinned MCP SDK aborts extra.signal on notifications/cancelled, but
+    # neither aborts outstanding requests on Protocol.onclose nor emits a
+    # transport close callback for stdin EOF. Bind both explicit cancellation
+    # and stdio lifetime to request-local admission without copying upstream.
+    # Exact upstream anchors must match once or install fails closed.
+    $serverFile = Join-Path $staging "src\server.ts"
+    $serverText = [IO.File]::ReadAllText($serverFile)
+    $serverPatches = @(
+        @{
+            Find = "import * as handlers from './handlers/index.js';"
+            Replace = "import * as handlers from './handlers/index.js';`nimport { runWithRequestAbort } from './workbridge-process-admission.js';"
+        },
+        @{
+            Find = 'server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest): Promise<ServerResult> => {'
+            Replace = "server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest, extra): Promise<ServerResult> => {`n    return runWithRequestAbort(extra?.signal, async () => {`n    if (extra?.signal?.aborted) throw new Error('request canceled before tool dispatch');"
+        },
+        @{
+            Find = '    return handleCallToolRequest(request);'
+            Replace = "    return handleCallToolRequest(request);`n    });"
+        }
+    )
+    foreach ($change in $serverPatches) {
+        $matches = [regex]::Matches($serverText, [regex]::Escape($change.Find))
+        if ($matches.Count -ne 1) {
+            throw "pinned upstream MCP cancellation anchor mismatch: expected one match, found $($matches.Count)"
+        }
+        $serverText = $serverText.Replace($change.Find, $change.Replace)
+    }
+    [IO.File]::WriteAllText($serverFile, $serverText, [Text.UTF8Encoding]::new($false))
+
+    $indexFile = Join-Path $staging "src\index.ts"
+    $indexText = [IO.File]::ReadAllText($indexFile)
+    $indexPatches = @(
+        @{
+            Find = "import { FilteredStdioServerTransport } from './custom-stdio.js';"
+            Replace = "import { FilteredStdioServerTransport } from './custom-stdio.js';`nimport { bindProcessAdmissionToStdioDisconnect } from './workbridge-process-admission.js';"
+        },
+        @{
+            Find = '    const transport = new FilteredStdioServerTransport();'
+            Replace = "    const transport = new FilteredStdioServerTransport();`n    bindProcessAdmissionToStdioDisconnect(server, process.stdin);"
+        }
+    )
+    foreach ($change in $indexPatches) {
+        $matches = [regex]::Matches($indexText, [regex]::Escape($change.Find))
+        if ($matches.Count -ne 1) {
+            throw "pinned upstream MCP stdio lifetime anchor mismatch: expected one match, found $($matches.Count)"
+        }
+        $indexText = $indexText.Replace($change.Find, $change.Replace)
+    }
+    [IO.File]::WriteAllText($indexFile, $indexText, [Text.UTF8Encoding]::new($false))
+
     Push-Location $staging
     $originalPath = $env:PATH
     try {

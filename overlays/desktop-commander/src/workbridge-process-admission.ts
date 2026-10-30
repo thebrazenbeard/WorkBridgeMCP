@@ -1,3 +1,62 @@
+import type { ChildProcess } from 'node:child_process';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+export class ProcessAdmissionCancelledError extends Error {
+  constructor() {
+    super('request canceled before process admission');
+    this.name = 'ProcessAdmissionCancelledError';
+  }
+}
+
+export type ProcessAdmissionOptions = { signal?: AbortSignal };
+
+// The MCP SDK supplies one signal per CallTool request. In the pinned SDK
+// v1.25.1, explicit notifications/cancelled aborts that signal, but transport
+// closure does not; stdio EOF does not even trigger Protocol.onclose. Combine
+// the request signal with the one-way transport lifetime signal so no queued
+// request is authorized to spawn after stdin/transport closure.
+const requestAbort = new AsyncLocalStorage<AbortSignal | undefined>();
+const activeRequests = new Set<AbortController>();
+let stdioClosed = false;
+
+export function bindProcessAdmissionToStdioDisconnect(
+  server: { onclose?: () => void },
+  input: NodeJS.ReadStream
+): void {
+  const abort = () => {
+    if (stdioClosed) return;
+    stdioClosed = true;
+    for (const controller of activeRequests) controller.abort();
+  };
+  input.once('end', abort);
+  input.once('close', abort);
+  input.once('error', abort);
+  const previousClose = server.onclose;
+  server.onclose = () => {
+    abort();
+    previousClose?.();
+  };
+  if (input.readableEnded || input.destroyed) abort();
+}
+
+export function runWithRequestAbort<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const onCancel = () => controller.abort();
+  activeRequests.add(controller);
+  signal?.addEventListener('abort', onCancel, { once: true });
+  if (stdioClosed || signal?.aborted) controller.abort();
+  const cleanup = () => {
+    activeRequests.delete(controller);
+    signal?.removeEventListener('abort', onCancel);
+  };
+  try {
+    return requestAbort.run(controller.signal, fn).finally(cleanup);
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
+}
+
 export class ProcessAdmissionGate {
   private active = 0;
   private readonly waiters: Array<() => void> = [];
@@ -8,22 +67,52 @@ export class ProcessAdmissionGate {
     }
   }
 
-  async acquire(): Promise<() => void> {
+  async acquire(options: ProcessAdmissionOptions = {}): Promise<() => void> {
+    const signal = options.signal;
+    if (signal?.aborted) throw new ProcessAdmissionCancelledError();
     if (this.active >= this.maxConcurrent) {
-      await new Promise<void>(resolve => this.waiters.push(resolve));
+      // The released slot is reserved for this waiter before it resumes.
+      await new Promise<void>((resolve, reject) => {
+        const enter = () => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve();
+        };
+        const onAbort = () => {
+          const index = this.waiters.indexOf(enter);
+          if (index < 0) return; // Already transferred to this waiter.
+          this.waiters.splice(index, 1);
+          signal?.removeEventListener('abort', onAbort);
+          reject(new ProcessAdmissionCancelledError());
+        };
+        this.waiters.push(enter);
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) onAbort();
+      });
+    } else {
+      this.active += 1;
     }
-    this.active += 1;
+    // A signal can fire after the occupied slot was transferred but before
+    // this async continuation resumed. Give that slot to the next waiter.
+    if (signal?.aborted) {
+      this.releaseOccupied();
+      throw new ProcessAdmissionCancelledError();
+    }
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      this.active -= 1;
-      this.waiters.shift()?.();
+      this.releaseOccupied();
     };
   }
 
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    const release = await this.acquire();
+  private releaseOccupied() {
+    const next = this.waiters.shift();
+    if (next) next(); // Transfer the occupied slot; newcomers cannot barge.
+    else this.active -= 1;
+  }
+
+  async run<T>(fn: () => Promise<T>, options?: ProcessAdmissionOptions): Promise<T> {
+    const release = await this.acquire(options);
     try {
       return await fn();
     } finally {
@@ -33,3 +122,41 @@ export class ProcessAdmissionGate {
 }
 
 export const workbridgeProcessAdmission = new ProcessAdmissionGate(4);
+
+/**
+ * Keep an occupied admission slot for the life of the directly spawned child.
+ * start_process may return a PID or prompt long before that child exits.
+ * Descendants that outlive the direct child are outside this guarantee.
+ */
+export async function spawnWithProcessAdmission<T extends ChildProcess>(
+  start: () => T,
+  gate: ProcessAdmissionGate = workbridgeProcessAdmission,
+  onProcessError?: (error: Error) => void,
+  options?: ProcessAdmissionOptions
+): Promise<T> {
+  const signal = options?.signal ?? requestAbort.getStore();
+  const release = await gate.acquire({ signal });
+  if (signal?.aborted) {
+    release();
+    throw new ProcessAdmissionCancelledError();
+  }
+  let child: T;
+  try {
+    child = start();
+  } catch (error) {
+    release();
+    throw error;
+  }
+
+  child.once('exit', release);
+  child.once('close', release);
+  // A failed spawn has no PID and may emit 'error' without emitting 'exit'.
+  // An error on an already-running process (e.g. failed kill or IPC send)
+  // must not release its slot before the child actually exits.
+  child.on('error', (error: Error) => {
+    if (!child.pid || child.exitCode !== null || child.signalCode !== null) release();
+    onProcessError?.(error);
+  });
+  if (!child.pid) release();
+  return child;
+}
