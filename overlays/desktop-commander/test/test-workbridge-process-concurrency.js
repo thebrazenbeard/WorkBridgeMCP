@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
 // The installer must test its compiled overlay. Developers can opt into source
@@ -11,7 +12,8 @@ const sourceMode = process.env.WORKBRIDGE_TEST_SOURCE === '1';
 assert.ok(sourceMode || existsSync(fileURLToPath(distUrl)),
   'compiled overlay missing: run npm build before the installer regression');
 const admissionModule = await import(sourceMode ? sourceUrl : distUrl);
-const { ProcessAdmissionGate, spawnWithProcessAdmission, runWithRequestAbort } = admissionModule;
+const { ProcessAdmissionGate, spawnWithProcessAdmission, runWithRequestAbort,
+  bindProcessAdmissionToStdioDisconnect } = admissionModule;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function within(promise, timeoutMs, message) {
@@ -276,4 +278,32 @@ if (!sourceMode) {
     await terminateActive();
   }
 }
+// SDK v1.25.1 does not abort extra.signal on transport close, and its stdio
+// transport does not emit onclose when stdin reaches EOF. The overlay must
+// explicitly cancel all not-yet-admitted processes at either boundary.
+const eofGate = new ProcessAdmissionGate(1);
+const releaseEofOwner = await eofGate.acquire();
+const input = new EventEmitter();
+let originalCloseCount = 0;
+const sdkServer = { onclose: () => { originalCloseCount += 1; } };
+bindProcessAdmissionToStdioDisconnect(sdkServer, input);
+let spawnedAfterEof = false;
+const queuedAfterEof = runWithRequestAbort(undefined, async () => {
+  await delay(5);
+  return spawnWithProcessAdmission(() => {
+    spawnedAfterEof = true;
+    return spawn(process.execPath, ['-e', 'process.exit(0)']);
+  }, eofGate);
+});
+await delay(20);
+input.emit('end');
+await assert.rejects(within(queuedAfterEof, 1000, 'stdin EOF left stale admission queued'),
+  error => error?.name === 'ProcessAdmissionCancelledError');
+releaseEofOwner();
+assert.equal(spawnedAfterEof, false, 'a fifth child started after stdin EOF');
+// Close events can follow EOF; wiring must be idempotent and preserve the SDK
+// server's prior onclose handler.
+input.emit('close');
+sdkServer.onclose();
+assert.equal(originalCloseCount, 1, 'the previous server onclose handler was lost');
 console.log('WORKBRIDGE_PROCESS_CONCURRENCY_V1 PASS');

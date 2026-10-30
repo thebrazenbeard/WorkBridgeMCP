@@ -10,12 +10,51 @@ export class ProcessAdmissionCancelledError extends Error {
 
 export type ProcessAdmissionOptions = { signal?: AbortSignal };
 
-// The MCP SDK supplies one signal per CallTool request. AsyncLocalStorage keeps
-// concurrent tool calls isolated while the pinned upstream handlers await
-// command validation and shell configuration before reaching the spawn seam.
+// The MCP SDK supplies one signal per CallTool request. In the pinned SDK
+// v1.25.1, explicit notifications/cancelled aborts that signal, but transport
+// closure does not; stdio EOF does not even trigger Protocol.onclose. Combine
+// the request signal with the one-way transport lifetime signal so no queued
+// request is authorized to spawn after stdin/transport closure.
 const requestAbort = new AsyncLocalStorage<AbortSignal | undefined>();
+const activeRequests = new Set<AbortController>();
+let stdioClosed = false;
+
+export function bindProcessAdmissionToStdioDisconnect(
+  server: { onclose?: () => void },
+  input: NodeJS.ReadStream
+): void {
+  const abort = () => {
+    if (stdioClosed) return;
+    stdioClosed = true;
+    for (const controller of activeRequests) controller.abort();
+  };
+  input.once('end', abort);
+  input.once('close', abort);
+  input.once('error', abort);
+  const previousClose = server.onclose;
+  server.onclose = () => {
+    abort();
+    previousClose?.();
+  };
+  if (input.readableEnded || input.destroyed) abort();
+}
+
 export function runWithRequestAbort<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Promise<T> {
-  return requestAbort.run(signal, fn);
+  const controller = new AbortController();
+  const onCancel = () => controller.abort();
+  activeRequests.add(controller);
+  signal?.addEventListener('abort', onCancel, { once: true });
+  if (stdioClosed || signal?.aborted) controller.abort();
+  const cleanup = () => {
+    activeRequests.delete(controller);
+    signal?.removeEventListener('abort', onCancel);
+  };
+  try {
+    return requestAbort.run(controller.signal, fn).finally(cleanup);
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
 
 export class ProcessAdmissionGate {

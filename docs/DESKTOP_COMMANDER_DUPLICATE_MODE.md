@@ -35,6 +35,18 @@ Target path:
 
 VeraMesh provides the authenticated remote transport. DesktopCommanderMCP provides the workstation MCP behavior. WorkBridgeMCP owns the exact-source pin, build/install/verification packet, and interoperability tests.
 
+The focused WorkBridge process-admission overlay limits **direct child process
+lifetimes** to four (not process descendants). While waiting for a slot, a
+`start_process` call is canceled if the MCP client sends an explicit
+`notifications/cancelled` or if the pinned stdio server detects input EOF,
+input close/error, or a transport-close callback. The pinned MCP SDK 1.25.1
+does **not** automatically abort a request's signal when the transport closes,
+and its stdio transport does not treat input EOF as a close event; the overlay
+explicitly bridges these boundaries. Once a child is spawned, request/transport
+cancellation does not kill it or release its slot prematurely. There is no
+independent default admission deadline if a remote client silently loses
+interest without delivering a cancellation or detectable stream closure.
+
 VeraRelay remains available as a VeraMesh relay/currentness component, but it must not reinterpret or narrow Desktop Commander's tool semantics on this duplicate path.
 
 ## Non-effects
