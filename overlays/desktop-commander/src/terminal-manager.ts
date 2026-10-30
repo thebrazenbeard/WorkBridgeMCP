@@ -5,7 +5,7 @@ import { DEFAULT_COMMAND_TIMEOUT } from './config.js';
 import { configManager } from './config-manager.js';
 import {capture} from "./utils/capture.js";
 import { analyzeProcessState } from './utils/process-detection.js';
-import { workbridgeProcessAdmission } from './workbridge-process-admission.js';
+import { spawnWithProcessAdmission } from './workbridge-process-admission.js';
 
 /**
  * Standard Windows PATHEXT value, used to repair a corrupted PATHEXT before
@@ -176,7 +176,8 @@ export class TerminalManager {
   }
   
   async executeCommand(command: string, timeoutMs: number = DEFAULT_COMMAND_TIMEOUT, shell?: string, collectTiming: boolean = false): Promise<CommandExecutionResult> {
-    return workbridgeProcessAdmission.run(async () => {
+    // Admission is owned by the spawned child, not this command's initial
+    // response promise: a prompt or timeout can return while the PID is alive.
     // Get the shell from config if not specified
     let shellToUse: string | boolean | undefined = shell;
     if (!shellToUse) {
@@ -254,8 +255,21 @@ export class TerminalManager {
       spawnOptions.windowsVerbatimArguments = true;
     }
 
-    // Spawn the process with appropriate arguments
-    const childProcess = spawn(spawnConfig.executable, spawnConfig.args, spawnOptions);
+    // Register the process-error observer synchronously with spawn admission:
+    // an async spawn failure can be emitted before the await continuation.
+    let forwardProcessError: ((err: Error) => void) | null = null;
+    let pendingProcessError: Error | null = null;
+    const childProcess = await spawnWithProcessAdmission(
+      () => spawn(spawnConfig.executable, spawnConfig.args, spawnOptions),
+      undefined,
+      (err: Error) => {
+        if (forwardProcessError) {
+          forwardProcessError(err);
+        } else {
+          pendingProcessError = err;
+          console.error(`Process error for "${command}": ${err.message}`);
+        }
+      });
     let output = '';
 
     // spawn() reports failure asynchronously via an 'error' event; it does not
@@ -269,17 +283,6 @@ export class TerminalManager {
     //
     // Attach before any return path below, and keep it for the session lifetime
     // so a later runtime error (EPIPE on a closed stdin, ...) can't crash us either.
-    let forwardProcessError: ((err: Error) => void) | null = null;
-    let pendingProcessError: Error | null = null;
-    childProcess.on('error', (err: Error) => {
-      if (forwardProcessError) {
-        forwardProcessError(err);
-      } else {
-        pendingProcessError = err;
-        console.error(`Process error for "${command}": ${err.message}`);
-      }
-    });
-
     // Ensure childProcess.pid is defined before proceeding
     if (!childProcess.pid) {
       // Return a consistent error object instead of throwing
@@ -488,7 +491,6 @@ export class TerminalManager {
           isBlocked: false
         });
       });
-    });
     });
   }
 
