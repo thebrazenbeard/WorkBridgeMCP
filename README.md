@@ -23,8 +23,9 @@ This repository contains two distinct workstation integration surfaces:
   server's tool or authority semantics.
 
 The [ChatGPT Desktop Commander integration example](docs/CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md)
-documents one deployment experiment. It is optional reference material, not a
-requirement for using WorkBridgeMCP or evidence of a qualified remote host.
+describes an intended single-device integration and its still-uncompleted
+qualification steps. It is optional reference material, not a requirement
+for using WorkBridgeMCP or evidence of a qualified remote host.
 
 ## Current v0.1 source capabilities
 
