@@ -2,22 +2,27 @@
 
 # WorkBridgeMCP
 
-## Two runtime modes
+WorkBridgeMCP is a self-hosted Go Model Context Protocol (MCP) server for granting
+a client explicitly configured access to workstation files and processes. Native
+WorkBridge tools operate within admitted filesystem roots and executable grants;
+they do not amount to an unrestricted remote shell.
 
-WorkBridge now has two deliberately different workstation models:
+The native server is stdio-first. Optional Streamable HTTP is restricted to
+literal loopback addresses and requires an explicit bearer secret.
 
-- **bounded native WorkBridge** — the Go server described below, with admitted roots and explicit process grants;
-- **exact Desktop Commander duplicate** — the actual pinned MIT DesktopCommanderMCP source, built and packaged by WorkBridge and transported by VeraMesh without semantic translation.
+## Runtime modes
 
-For the current single-device ChatGPT experiment, see [WorkBridge ChatGPT Exact Desktop Commander App V1](docs/CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md). Do not infer that the bounded Go tool surface and the Desktop Commander duplicate are interchangeable.
+This repository contains two distinct workstation integration surfaces:
 
+- **Bounded native WorkBridge:** the Go MCP server described here, with
+  configured read/write roots and explicit executable grants.
+- **Pinned Desktop Commander duplicate:** a separately built and packaged
+  DesktopCommanderMCP source surface transported by VeraMesh. It does not share
+  the native server's tool or authority semantics.
 
-WorkBridgeMCP is a small local Model Context Protocol server that gives an MCP client
-bounded access to a workstation without turning the workstation into an unrestricted
-remote shell.
-
-The server is stdio-first. Optional Streamable HTTP is restricted to literal loopback
-addresses and requires an explicit bearer secret.
+The [ChatGPT Desktop Commander integration example](docs/CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md)
+documents one deployment experiment. It is optional reference material, not a
+requirement for using WorkBridgeMCP or evidence of a qualified remote host.
 
 ## Current v0.1 source capabilities
 
