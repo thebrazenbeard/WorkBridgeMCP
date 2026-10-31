@@ -16,9 +16,11 @@ This repository contains two distinct workstation integration surfaces:
 
 - **Bounded native WorkBridge:** the Go MCP server described here, with
   configured read/write roots and explicit executable grants.
-- **Pinned Desktop Commander duplicate:** a separately built and packaged
-  DesktopCommanderMCP source surface transported by VeraMesh. It does not share
-  the native server's tool or authority semantics.
+- **Pinned Desktop Commander duplicate (source/design contract):** the
+  separate DesktopCommanderMCP source and intended packaging/VeraMesh transport
+  path. Build, installation, tunnel, and live ChatGPT operation have independent
+  qualification gates; no deployment is implied. It does not share the native
+  server's tool or authority semantics.
 
 The [ChatGPT Desktop Commander integration example](docs/CHATGPT_EXACT_DESKTOP_COMMANDER_APP_V1.md)
 documents one deployment experiment. It is optional reference material, not a
